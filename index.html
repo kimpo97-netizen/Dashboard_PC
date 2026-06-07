@@ -205,7 +205,6 @@
                             <span class="text-base">📅</span> 이번주 예약 인원
                         </h3>
                     </div>
-                    <!-- [추가] 예약 인원 전체보기 버튼 -->
                     <button id="btn-view-all-upc" onclick="viewAllUpcoming()" class="text-[11px] font-bold text-indigo-600 bg-white hover:bg-indigo-100 px-2 py-1 rounded border border-indigo-200 shadow-sm transition-colors cursor-pointer shrink-0 mt-0.5">전체보기</button>
                 </div>
                 <div id="upcoming-filters-container" class="space-y-2"></div>
@@ -318,7 +317,51 @@
                 <p class="text-sm font-bold text-slate-500">서버에서 예약 데이터를 불러오는 중입니다...</p>
             </div>
             
-            <!-- 리스트 헤더 부분: z-10에서 z-30으로 수정하여 리스트 내용과 겹치지 않게 고정 -->
+            <!-- 다중 선택 일괄 처리 바 (리스트 상단 고정 배치하여 다른 내용을 가리지 않음) -->
+            <div id="bulk-action-bar" class="hidden bg-white text-slate-800 p-5 rounded-xl border border-indigo-200 shadow-sm flex-col gap-4 mb-4 w-full transition-all duration-300 relative z-30">
+                <div class="flex items-center justify-between w-full">
+                    <div class="flex items-center gap-2 pl-1 overflow-x-auto no-scrollbar py-1">
+                        <span class="flex items-center justify-center px-2 min-w-[24px] h-6 rounded-full bg-indigo-500 text-white font-black text-xs font-tnum shrink-0 shadow-sm" id="bulk-count">0</span>
+                        <span class="font-bold text-xs text-slate-600 whitespace-nowrap shrink-0">선택됨</span>
+                        <div id="bulk-model-summary" class="hidden items-center gap-1.5 ml-2 border-l border-slate-300 pl-2"></div>
+                    </div>
+                    <button onclick="clearSelection()" class="ml-2 p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors shrink-0" title="선택 해제">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+                
+                <div class="w-full h-px bg-slate-100"></div>
+                
+                <div class="flex flex-wrap items-center justify-between gap-2 w-full">
+                    <div class="flex gap-2 flex-1 min-w-[300px]">
+                        <button onclick="bulkUpdateStatus('확정')" class="flex-1 text-[13px] font-bold bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 py-2.5 rounded-lg transition-colors shadow-sm">확정</button>
+                        <button onclick="bulkUpdateStatus('반납완료')" class="flex-1 text-[13px] font-bold bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 py-2.5 rounded-lg transition-colors shadow-sm">반납</button>
+                        <button onclick="bulkUpdateStatus('대기')" class="flex-1 text-[13px] font-bold bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 py-2.5 rounded-lg transition-colors shadow-sm">대기</button>
+                        <button onclick="bulkUpdateStatus('취소')" class="flex-1 text-[13px] font-bold bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 py-2.5 rounded-lg transition-colors shadow-sm">취소</button>
+                    </div>
+                    <div class="hidden md:block w-px h-6 bg-slate-200 mx-1"></div>
+                    <button onclick="bulkDeleteRecords()" class="text-[13px] font-bold bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-300 px-4 py-2.5 rounded-lg transition-colors shrink-0 shadow-sm">삭제</button>
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-2 w-full">
+                    <button onclick="bulkExtendRental()" class="flex-1 justify-center text-[13px] font-bold bg-sky-50 text-sky-600 hover:bg-sky-100 py-3 rounded-lg transition-colors border border-sky-200 flex items-center gap-1.5 shadow-sm">⏳ 대여 연장 (+1일)</button>
+                    <button onclick="bulkAddBackupMemo()" class="flex-1 justify-center text-[13px] font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 py-3 rounded-lg transition-colors border border-amber-200 flex items-center gap-1.5 shadow-sm">💾 데이터 백업 추가</button>
+                    <button onclick="copyForPostOffice()" class="flex-1 justify-center text-[13px] font-bold bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-800 py-3 rounded-lg transition-colors shadow-sm flex items-center gap-1.5" title="대여모델/이름/우편번호/주소/연락처 복사">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+                        우체국 배송 등록
+                    </button>
+                    <button onclick="openBulkTrackingModal()" class="flex-1 justify-center text-[13px] font-bold bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 py-3 rounded-lg transition-colors shadow-sm flex items-center gap-1.5">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> 
+                        배송시작 알림톡
+                    </button>
+                </div>
+
+                <div id="bulk-backup-actions" class="hidden items-center gap-2 w-full">
+                    <button onclick="bulkSetBackupStatus('백업시작')" class="flex-1 justify-center text-[13px] font-bold bg-purple-100 text-purple-700 hover:bg-purple-200 py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-1.5">▶️ 백업 시작</button>
+                    <button onclick="bulkSetBackupStatus('백업완료')" class="flex-1 justify-center text-[13px] font-bold bg-purple-500 hover:bg-purple-600 text-white py-2.5 rounded-lg transition-colors shadow-sm flex items-center gap-1.5">✅ 백업 완료</button>
+                </div>
+            </div>
+
             <div id="list-header" class="hidden bg-white border border-slate-200 rounded-xl mb-3 h-[48px] items-center pl-0 pr-4 text-[13px] font-extrabold text-slate-500 gap-3 shadow-sm relative z-20 overflow-hidden select-none">
                 <div class="w-16 h-full flex items-center justify-center pl-1.5 cursor-pointer transition-colors shrink-0" onclick="document.getElementById('selectAllCheckbox').click()">
                     <input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(event)" class="checkbox-custom pointer-events-none transform scale-110" title="전체 선택">
@@ -347,56 +390,6 @@
 
             <div id="list-container" class="flex flex-col gap-2.5 pb-24"></div>
         </main>
-    </div>
-
-    <!-- 다중 선택 일괄 처리 바 -->
-    <div id="bulk-action-bar" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-xl text-slate-800 p-5 rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1),0_0_20px_rgba(59,130,246,0.1)] border border-slate-200 flex flex-col gap-4 z-50 transition-all duration-300 translate-y-48 opacity-0 pointer-events-none w-[650px] max-w-[95vw]">
-        
-        <div class="flex items-center justify-between w-full">
-            <div class="flex items-center gap-2 pl-1 overflow-x-auto no-scrollbar py-1.5">
-                <span class="flex items-center justify-center px-2.5 min-w-[28px] h-7 rounded-full bg-indigo-200 text-indigo-800 font-black text-sm font-tnum shrink-0 shadow-sm" id="bulk-count">0</span>
-                <span class="font-bold text-sm text-slate-600 whitespace-nowrap shrink-0">선택됨</span>
-                <div id="bulk-model-summary" class="hidden items-center gap-2 ml-2 border-l border-slate-300 pl-3"></div>
-            </div>
-            <button onclick="clearSelection()" class="ml-2 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors shrink-0" title="선택 해제">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-            </button>
-        </div>
-        
-        <div class="w-full h-px bg-slate-100"></div>
-        
-        <div class="flex items-center justify-between gap-2 w-full">
-            <div class="flex gap-2 flex-1">
-                <button onclick="bulkUpdateStatus('확정')" class="flex-1 text-[13px] font-bold bg-blue-200 hover:bg-blue-300 text-blue-900 py-2.5 rounded-xl transition-colors shadow-sm">확정</button>
-                <button onclick="bulkUpdateStatus('반납완료')" class="flex-1 text-[13px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-800 py-2.5 rounded-xl transition-colors shadow-sm">반납</button>
-                <button onclick="bulkUpdateStatus('대기')" class="flex-1 text-[13px] font-bold bg-purple-200 hover:bg-purple-300 text-purple-900 py-2.5 rounded-xl transition-colors shadow-sm">대기</button>
-                <button onclick="bulkUpdateStatus('취소')" class="flex-1 text-[13px] font-bold bg-rose-100 hover:bg-rose-200 border border-rose-200 text-rose-700 py-2.5 rounded-xl transition-colors shadow-sm">취소</button>
-            </div>
-            <div class="w-px h-7 bg-slate-200 mx-0.5"></div>
-            <button onclick="bulkDeleteRecords()" class="text-[13px] font-bold bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-300 px-4 py-2.5 rounded-xl transition-colors shrink-0 shadow-sm">삭제</button>
-        </div>
-        
-        <div class="flex items-center gap-2 w-full">
-            <button onclick="bulkExtendRental()" class="flex-1 justify-center text-[13px] font-bold bg-sky-50 text-sky-600 hover:bg-sky-100 py-3 rounded-xl transition-colors border border-sky-200 flex items-center gap-1.5 shadow-sm">⏳ 대여 연장 (+1일)</button>
-            <button onclick="bulkAddBackupMemo()" class="flex-1 justify-center text-[13px] font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 py-3 rounded-xl transition-colors border border-amber-200 flex items-center gap-1.5 shadow-sm">💾 데이터 백업 추가</button>
-        </div>
-
-        <!-- [NEW] 백업 관련 버튼 (선택 항목 중 백업이 포함된 경우에만 표시됨) -->
-        <div id="bulk-backup-actions" class="hidden items-center gap-2 w-full">
-            <button onclick="bulkSetBackupStatus('백업시작')" class="flex-1 justify-center text-[13px] font-bold bg-purple-100 text-purple-700 hover:bg-purple-200 py-3 rounded-xl transition-colors shadow-sm flex items-center gap-1.5">▶️ 백업 시작</button>
-            <button onclick="bulkSetBackupStatus('백업완료')" class="flex-1 justify-center text-[13px] font-bold bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl transition-colors shadow-sm flex items-center gap-1.5">✅ 백업 완료</button>
-        </div>
-        
-        <div class="flex items-center gap-2 w-full">
-            <button onclick="copyForPostOffice()" class="flex-1 justify-center text-[13px] font-bold bg-orange-200 hover:bg-orange-300 text-orange-900 py-3 rounded-xl transition-colors shadow-sm flex items-center gap-1.5" title="대여모델/이름/우편번호/주소/연락처 복사">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
-                우체국 배송 등록
-            </button>
-            <button onclick="openBulkTrackingModal()" class="flex-1 justify-center text-[13px] font-bold bg-teal-200 hover:bg-teal-300 text-teal-900 py-3 rounded-xl transition-colors shadow-sm flex items-center gap-1.5">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> 
-                배송시작 알림톡
-            </button>
-        </div>
     </div>
 
     <!-- 상세 정보 모달 (PC 폼) -->
@@ -708,19 +701,17 @@
         selectedDates = []; 
         let selectedReturnDates = []; 
         
-        let currentSortField = 'orderTime'; // 단일 모드에서 항목별 필드 기준으로 변경
-        let currentSortDirection = 'desc'; // 오름차순(asc) / 내림차순(desc) 상태 추가
+        let currentSortField = 'orderTime';
+        let currentSortDirection = 'desc';
         
-        let selectedUpcomingFilters = []; // 다중 선택 지원을 위한 배열
+        let selectedUpcomingFilters = [];
         let isViewAllUpcoming = false;
         
-        let selectedReturnUpcomingFilters = []; // 다중 선택 지원을 위한 배열
+        let selectedReturnUpcomingFilters = [];
         let isViewAllReturnUpcoming = false;
 
-        // 추가 서비스 필터 상태
         let currentServiceFilter = null; 
 
-        // 달력 상태 변수
         let currentCalDate = new Date();
         let tempSelectedDates = [];
         let lastClickedCalDateStr = null; 
@@ -729,11 +720,10 @@
             renderUpcomingFilters(); 
             renderReturnUpcomingFilters(); 
             renderServiceFilters(); 
-            updateSortUI(); // 초기 로딩 시 정렬 화살표 및 UI 동기화
+            updateSortUI();
             fetchData();
         };
 
-        // 일반 필터 접기/펼치기 기능
         function toggleGeneralFilters() {
             const container = document.getElementById('general-filters-container');
             const icon = document.getElementById('general-filters-icon');
@@ -844,7 +834,6 @@
             const container = document.getElementById('upcoming-filters-container');
             if (!container) return;
             
-            // 퀵 > 사무실 > 택배 > 공연장 순서로 변경
             const methods = [
                 { id: '퀵', icon: '⚡' },
                 { id: '사무실', icon: '🏢' },
@@ -878,7 +867,6 @@
             const container = document.getElementById('return-upcoming-filters-container');
             if (!container) return;
             
-            // 당일반납(퀵) > 사무실 > 택배 > 공연장 순서로 변경
             const methods = [
                 { id: '당일반납', icon: '⚡' },
                 { id: '사무실', icon: '🏢' },
@@ -923,7 +911,6 @@
             `;
         }
 
-        // 예약 인원 전체보기 전용 토글 함수
         function viewAllUpcoming() {
             if (isViewAllUpcoming) {
                 isViewAllUpcoming = false;
@@ -971,7 +958,6 @@
             filterData(false);
         }
 
-        // 반납 전체보기 전용 토글 함수
         function viewAllReturnUpcoming() {
             if (isViewAllReturnUpcoming) {
                 isViewAllReturnUpcoming = false;
@@ -1020,25 +1006,20 @@
         }
 
         function setUpcomingFilter(del, mod) {
-            isViewAllUpcoming = false; // 개별 선택 시 전체보기 해제
+            isViewAllUpcoming = false;
             
             const existingIdx = selectedUpcomingFilters.findIndex(f => f.method === del && f.value === mod);
             
             if (existingIdx > -1) {
-                // 이미 선택된 항목이면 해제
                 selectedUpcomingFilters.splice(existingIdx, 1);
             } else {
-                // 새로 선택
                 if (mod === 'all') {
-                    // 해당 수령방법의 다른 하위 선택 지우기
                     selectedUpcomingFilters = selectedUpcomingFilters.filter(f => f.method !== del);
                 } else {
-                    // 해당 수령방법의 'all' 선택 지우기
                     selectedUpcomingFilters = selectedUpcomingFilters.filter(f => !(f.method === del && f.value === 'all'));
                 }
                 selectedUpcomingFilters.push({ method: del, value: mod });
                 
-                // 다른 메인 필터들은 초기화 (기존 로직 유지)
                 selectedReturnUpcomingFilters = [];
                 isViewAllReturnUpcoming = false;
                 currentServiceFilter = null; 
@@ -1938,6 +1919,7 @@
             updateBulkActionBar();
         }
 
+        // Update action bar with classes for top positioning
         function updateBulkActionBar() {
             const bar = document.getElementById('bulk-action-bar');
             const count = document.getElementById('bulk-count');
@@ -1947,7 +1929,8 @@
 
             if (selectedRows.length > 0) {
                 count.innerText = selectedRows.length;
-                bar.classList.remove('translate-y-48', 'opacity-0', 'pointer-events-none');
+                bar.classList.remove('hidden');
+                bar.classList.add('flex');
                 if(selectAll) selectAll.checked = selectedRows.length === currentlyFilteredList.length;
 
                 let hasBackup = false; 
@@ -2006,7 +1989,8 @@
                 }
 
             } else {
-                bar.classList.add('translate-y-48', 'opacity-0', 'pointer-events-none');
+                bar.classList.add('hidden');
+                bar.classList.remove('flex');
                 if(selectAll) selectAll.checked = false;
                 
                 if(modelSummary) {
@@ -2446,12 +2430,11 @@
             container.innerHTML = '';
             if(!list.length) { container.innerHTML = `<div class="py-20 text-center text-slate-500 font-bold bg-white rounded-xl border border-dashed border-slate-300">검색 조건에 맞는 예약 내역이 없습니다.</div>`; return; }
             
-            // --- [유지] 중복 확인 로직 (동명이인 & 연락처 4자리 이상 연속 일치 & 대여시작일 동일) ---
             const activeByName = {};
             
             allData.forEach(item => {
                 const statusStr = String(item.status || '');
-                if (statusStr.includes('취소') || statusStr.includes('반납')) return; // 취소 및 반납건 제외
+                if (statusStr.includes('취소') || statusStr.includes('반납')) return; 
                 
                 const cleanName = String(item.name || '').replace(/\s+/g, '');
                 if (cleanName.length >= 2) {
@@ -2475,7 +2458,6 @@
                 }
                 return false;
             }
-            // -------------------------
 
             list.forEach(item => {
                 const isSelected = selectedRows.includes(String(item.row));
@@ -2492,7 +2474,6 @@
                 else if(item.status === '대기') { badgeClass = 'status-hold'; badgeText = '대기'; }
                 else if(item.status === '취소') { badgeClass = 'status-cancel'; badgeText = '취소'; }
 
-                // --- [유지] 중복 플래그 처리 ---
                 const cleanName = String(item.name || '').replace(/\s+/g, '');
                 const itemStatusStr = String(item.status || '');
                 const isExcludedFromDup = itemStatusStr.includes('취소') || itemStatusStr.includes('반납');
@@ -2503,7 +2484,6 @@
                     
                     const isDup = sameNameItems.some(otherItem => {
                         if (String(otherItem.row) === String(item.row)) return false; 
-                        // 대여 시작일이 다르면 중복이 아님
                         if (String(item.startDate || '') !== String(otherItem.startDate || '')) return false; 
                         
                         return isPhoneSimilar(item.phone, otherItem.phone);
@@ -2513,7 +2493,6 @@
                         duplicateBadgeHtml = `<span class="text-[10px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded font-bold shadow-sm cursor-help whitespace-nowrap" title="동일한 날짜에 동명이인이면서 연락처가 4자리 이상 일치하는 예약건 존재">⚠️ 중복</span>`;
                     }
                 }
-                // -------------------------
 
                 const time = formatTime(item.orderTime);
                 const price = (parseInt(String(item.totalPrice||0).replace(/[^0-9]/g, '')) || 0).toLocaleString() + '원';
@@ -3110,7 +3089,6 @@
             setTimeout(() => toast.remove(), 2000);
         }
 
-        // --- 달력 다중 선택 로직 ---
         function openCalendarModal() {
             tempSelectedDates = [...selectedDates];
             lastClickedCalDateStr = null;
