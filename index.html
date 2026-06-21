@@ -99,7 +99,7 @@
         .range-start, .range-end { background-color: #2563EB !important; color: white !important; }
         .range-middle { background-color: #EFF6FF !important; color: #1E293B !important; border-radius: 4px !important; }
 
-        /* 특수 필터 커스텀 스타일 (Active & Hover 색상 충돌 해결) */
+        /* 특수 필터 커스텀 스타일 */
         .today-post-filter-item { border-color: #BFDBFE !important; color: #1D4ED8 !important; background-color: #ffffff !important; }
         .today-post-filter-item:hover { background-color: #DBEAFE !important; }
         .today-post-filter-item.active { background-color: #2563EB !important; color: #FFFFFF !important; border-color: #2563EB !important; }
@@ -130,7 +130,6 @@
         .ret-upc-item.active:hover { background-color: #E11D48 !important; }
         .ret-upc-item.active * { color: #FFFFFF !important; }
 
-        /* [NEW] 추가 서비스 필터 스타일 */
         .svc-header.active { background-color: #EAB308 !important; border-color: #CA8A04 !important; }
         .svc-header.active:hover { background-color: #CA8A04 !important; }
         .svc-header.active * { color: #FFFFFF !important; }
@@ -181,7 +180,7 @@
                 </button>
             </div>
 
-            <!-- 추가 서비스 현황 세로형 필터 (맨 위로 이동) -->
+            <!-- 추가 서비스 현황 세로형 필터 -->
             <div class="bg-yellow-50 p-4 rounded-2xl shadow-sm border border-yellow-200">
                 <div class="flex justify-between items-start mb-3">
                     <div class="flex flex-col gap-1.5">
@@ -317,7 +316,7 @@
                 <p class="text-sm font-bold text-slate-500">서버에서 예약 데이터를 불러오는 중입니다...</p>
             </div>
             
-            <!-- 다중 선택 일괄 처리 바 (리스트 상단 고정 배치하여 다른 내용을 가리지 않음) -->
+            <!-- 다중 선택 일괄 처리 바 -->
             <div id="bulk-action-bar" class="flex bg-white text-slate-800 p-4 rounded-xl border border-indigo-200 shadow-sm flex-col gap-3 mb-4 w-full transition-all duration-300 relative z-30">
                 <div class="flex items-center justify-between w-full">
                     <div class="flex items-center gap-2 pl-1 overflow-x-auto no-scrollbar py-1">
@@ -332,17 +331,16 @@
                 
                 <div class="w-full h-px bg-slate-100"></div>
                 
-                <!-- 작업 버튼들을 왼쪽으로 몰아서 컴팩트하게 배치 -->
                 <div class="flex flex-col gap-2 w-full">
                     <div class="flex flex-wrap items-center justify-start gap-4 w-full">
                         <span class="text-[11px] font-black text-slate-400 w-12 shrink-0">상태변경</span>
-                        <button onclick="bulkUpdateStatus('확정')" class="text-[13px] font-bold bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">확정</button>
-                        <button onclick="bulkUpdateStatus('반납완료')" class="text-[13px] font-bold bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">반납</button>
-                        <button onclick="bulkUpdateStatus('대기')" class="text-[13px] font-bold bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">대기</button>
-                        <button onclick="bulkUpdateStatus('취소')" class="text-[13px] font-bold bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">취소</button>
+                        <button onclick="bulkUpdateStatus('확정')" class="text-[14px] font-bold bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">확정</button>
+                        <button onclick="bulkUpdateStatus('반납완료')" class="text-[14px] font-bold bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">반납</button>
+                        <button onclick="bulkUpdateStatus('대기')" class="text-[14px] font-bold bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">대기</button>
+                        <button onclick="bulkUpdateStatus('취소')" class="text-[14px] font-bold bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">취소</button>
                         
                         <div class="w-px h-5 bg-slate-200 mx-2"></div>
-                        <button onclick="bulkDeleteRecords()" class="text-[13px] font-bold bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-300 px-6 py-2.5 min-w-[84px] rounded-lg transition-colors shrink-0 shadow-sm">삭제</button>
+                        <button onclick="bulkDeleteRecords()" class="text-[14px] font-bold bg-white border border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-300 px-6 py-2.5 min-w-[84px] rounded-lg transition-colors shrink-0 shadow-sm">삭제</button>
                     </div>
                     
                     <div class="flex flex-wrap items-center justify-start gap-2 w-full mt-1">
@@ -641,23 +639,6 @@
         const API_URL = "https://script.google.com/macros/s/AKfycbz8M-LLBNxTVZRQmHWd82ebAZVsJbXOpzaQCHQVbkk6Q8EmRC1hdub27vW9uySwSHiHrA/exec"; 
         const MODEL_LIST = ['23U', '24U', '25U', '26U', '17P', '17PM'];
         const STATUS_PRIORITY = { '예약신청': 1, '대기': 2, '확정': 3, '반납완료': 4, '취소': 5 };
-
-        const HOLIDAYS = {
-            '2025-1-1': '신정', '2025-1-28': '설날', '2025-1-29': '설날', '2025-1-30': '설날',
-            '2025-3-1': '삼일절', '2025-3-3': '대체공휴일', '2025-5-5': '어린이날', '2025-5-6': '대체공휴일',
-            '2025-6-6': '현충일', '2025-8-15': '광복절', '2025-10-3': '개천절', '2025-10-5': '추석',
-            '2025-10-6': '추석', '2025-10-7': '추석', '2025-10-8': '대체공휴일', '2025-10-9': '한글날',
-            '2025-12-25': '성탄절',
-            '2026-1-1': '신정', 
-            '2026-2-16': '설날', '2026-2-17': '설날', '2026-2-18': '설날',
-            '2026-3-1': '삼일절', '2026-3-2': '대체공휴일',
-            '2026-5-5': '어린이날', '2026-5-24': '부처님오신날', '2026-5-25': '대체공휴일',
-            '2026-6-6': '현충일', 
-            '2026-8-15': '광복절', '2026-8-17': '대체공휴일',
-            '2026-9-24': '추석', '2026-9-25': '추석', '2026-9-26': '추석', 
-            '2026-10-3': '개천절', '2026-10-5': '대체공휴일', '2026-10-9': '한글날',
-            '2026-12-25': '성탄절'
-        };
 
         function isWithinUpcomingBusinessDays(startDateStr, maxDays) {
             if (!startDateStr || !startDateStr.includes('-')) return false;
@@ -2052,7 +2033,7 @@
         function bulkDeleteRecords() {
             if (selectedRows.length === 0) return;
 
-            showAppConfirm(`선택한 ${selectedRows.length}개의 예약을 완전히 삭제하시겠습니까?\n(이 작업은 되돌릴 수 없습니다)`, async () => {
+            showAppConfirm(`선택한 ${selectedRows.length}개의 예약을 완전히 삭제하시겠습니까?\n(이 작업은 되돌릴 수 정 없습니다)`, async () => {
                 const originalDataBackup = [];
                 const rowsToDelete = [...selectedRows].sort((a, b) => parseInt(b) - parseInt(a));
                 const deleteTargets = [];
@@ -2307,18 +2288,29 @@
                         }
                     }
                     
+                    // [추가] 결제 금액 인상 로직 (아이폰 2만, 갤럭시 1.5만)
+                    let currentPrice = parseInt(String(allData[targetIndex].totalPrice || 0).replace(/[^0-9]/g, '')) || 0;
+                    let modelStr = String(allData[targetIndex].model || '').toUpperCase();
+                    let addPrice = 15000;
+                    if (modelStr.includes('17P') || modelStr.includes('IPHONE') || modelStr.includes('아이폰')) {
+                        addPrice = 20000;
+                    }
+                    let newPrice = currentPrice + addPrice;
+                    
                     allData[targetIndex].endDate = newEndDateStr; 
-                    updates.push({ row: rowId, endDate: newEndDateStr, orderTime: allData[targetIndex].orderTime, phone: allData[targetIndex].phone });
+                    allData[targetIndex].totalPrice = newPrice;
+                    
+                    updates.push({ row: rowId, endDate: newEndDateStr, totalPrice: newPrice, orderTime: allData[targetIndex].orderTime, phone: allData[targetIndex].phone });
                 }
             });
 
             clearSelection();
             filterData(true);
-            showAppAlert(`${updates.length}건의 반납일이 1일 연장되었습니다.`, "연장 완료", "✅");
+            showAppAlert(`${updates.length}건의 반납일이 1일 연장되고, 결제금액이 자동 인상되었습니다.`, "연장 완료", "✅");
 
             try {
                 for (const u of updates) {
-                    const payload = { type: 'update', row: u.row, sheetName: '예약내역', endDate: u.endDate, orderTime: u.orderTime, phone: u.phone };
+                    const payload = { type: 'update', row: u.row, sheetName: '예약내역', endDate: u.endDate, totalPrice: u.totalPrice, orderTime: u.orderTime, phone: u.phone };
                     const res = await fetch(API_URL, { 
                         method: 'POST', 
                         redirect: 'follow',
@@ -2349,8 +2341,15 @@
                     let currentMemo = allData[targetIndex].memo || '';
                     if (!currentMemo.includes("백업")) {
                         const newMemo = currentMemo ? currentMemo + " / 백업" : "백업";
+                        
+                        // [추가] 데이터 백업 금액(+10,000) 인상 로직
+                        let currentPrice = parseInt(String(allData[targetIndex].totalPrice || 0).replace(/[^0-9]/g, '')) || 0;
+                        let newPrice = currentPrice + 10000;
+
                         allData[targetIndex].memo = newMemo; 
-                        updates.push({ row: rowId, memo: newMemo, orderTime: allData[targetIndex].orderTime, phone: allData[targetIndex].phone });
+                        allData[targetIndex].totalPrice = newPrice;
+                        
+                        updates.push({ row: rowId, memo: newMemo, totalPrice: newPrice, orderTime: allData[targetIndex].orderTime, phone: allData[targetIndex].phone });
                     }
                 }
             });
@@ -2362,11 +2361,11 @@
 
             clearSelection();
             filterData(true);
-            showAppAlert(`${updates.length}건의 메모에 백업이 추가되었습니다.`, "데이터 백업 추가 완료", "✅");
+            showAppAlert(`${updates.length}건의 메모에 백업이 추가되고, 결제금액(+10,000)이 반영되었습니다.`, "데이터 백업 추가 완료", "✅");
 
             try {
                 for (const u of updates) {
-                    const payload = { type: 'update', row: u.row, sheetName: '예약내역', memo: u.memo, orderTime: u.orderTime, phone: u.phone };
+                    const payload = { type: 'update', row: u.row, sheetName: '예약내역', memo: u.memo, totalPrice: u.totalPrice, orderTime: u.orderTime, phone: u.phone };
                     const res = await fetch(API_URL, { 
                         method: 'POST', 
                         redirect: 'follow',
@@ -2650,7 +2649,22 @@
                 const mm = String(date.getMonth() + 1).padStart(2, '0');
                 const dd = String(date.getDate()).padStart(2, '0');
                 endInput.value = `${yyyy}-${mm}-${dd}`;
-                showToast("반납일이 1일 연장되었습니다.");
+                
+                // [추가] 금액 인상 (개별 수정 모달 내부 버튼)
+                const priceInput = document.getElementById('edit-price');
+                let currentPrice = parseInt(String(priceInput.value || 0).replace(/[^0-9]/g, '')) || 0;
+                
+                const modelType = document.getElementById('edit-model-type').value || '';
+                const deviceId = document.getElementById('edit-device-id').value || '';
+                const fullModel = (modelType + deviceId).toUpperCase();
+                
+                let addPrice = 15000;
+                if (fullModel.includes('17P') || fullModel.includes('IPHONE') || fullModel.includes('아이폰')) {
+                    addPrice = 20000;
+                }
+                priceInput.value = currentPrice + addPrice;
+                
+                showToast(`반납일이 1일 연장되고 금액(+${addPrice.toLocaleString()})이 추가되었습니다.`);
             } else {
                 showToast("반납 예정일이 설정되어 있지 않습니다.");
             }
@@ -2661,7 +2675,13 @@
             let currentMemo = memoInput.value;
             if (!currentMemo.includes("백업")) {
                 memoInput.value = currentMemo ? currentMemo + " / 백업" : "백업";
-                showToast("메모에 백업이 추가되었습니다.");
+                
+                // [추가] 금액 인상 (개별 수정 모달 내부 버튼)
+                const priceInput = document.getElementById('edit-price');
+                let currentPrice = parseInt(String(priceInput.value || 0).replace(/[^0-9]/g, '')) || 0;
+                priceInput.value = currentPrice + 10000;
+                
+                showToast("메모에 백업이 추가되고 금액(+10,000)이 추가되었습니다.");
             } else {
                 showToast("이미 백업이 포함되어 있습니다.");
             }
