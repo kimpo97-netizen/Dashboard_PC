@@ -173,6 +173,10 @@
                 </div>
             </div>
 
+            <button onclick="openAddModal()" class="h-11 px-4 flex items-center gap-2 bg-violet-500 hover:bg-violet-600 rounded-[18px] text-[13px] font-bold text-white shadow-md shadow-violet-200 transition-all whitespace-nowrap shrink-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                예약 생성
+            </button>
             <button onclick="fetchData()" class="h-11 px-4 flex items-center gap-2 bg-sky-400 hover:bg-sky-500 rounded-[18px] text-[13px] font-bold text-white shadow-md shadow-sky-200 transition-all whitespace-nowrap shrink-0">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
                 최신 정보 불러오기
@@ -180,6 +184,10 @@
             <button onclick="toggleSortMode()" class="h-11 px-4 flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100/80 rounded-[18px] text-[13px] font-bold text-indigo-600 shadow-sm transition-all whitespace-nowrap shrink-0">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
                 정렬: <span id="sort-mode-text" class="text-indigo-800 font-black">최신순</span>
+            </button>
+            <button onclick="openReviewManager()" class="h-11 px-4 flex items-center gap-2 bg-amber-400 hover:bg-amber-500 rounded-[18px] text-[13px] font-bold text-white shadow-md shadow-amber-200 transition-all whitespace-nowrap shrink-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14 2 9.27l7.1-1.01z"/></svg>
+                리뷰 관리
             </button>
             <button onclick="doLogout()" class="h-11 px-4 flex items-center gap-2 bg-white hover:bg-rose-50 border border-rose-100 rounded-[18px] text-[13px] font-bold text-rose-500 shadow-sm transition-all whitespace-nowrap shrink-0">
                 로그아웃
@@ -430,7 +438,7 @@
         <div class="modal-overlay" onclick="closeModal()"></div>
         <div class="center-modal">
             <div class="px-8 py-6 border-b border-slate-200 flex-none bg-white rounded-t-[20px] flex justify-between items-center">
-                <h2 class="text-xl font-black tracking-tight text-slate-900">예약 상세 내용</h2>
+                <h2 id="modal-edit-title" class="text-xl font-black tracking-tight text-slate-900">예약 상세 내용</h2>
                 <button type="button" onclick="closeModal()" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 transition-colors">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
@@ -548,12 +556,25 @@
                                 <input type="hidden" id="edit-return-way">
                             </div>
                         </div>
+
+                        <!-- 리뷰이벤트 선택 -->
+                        <div class="mt-5 pt-5 border-t border-slate-100">
+                            <label class="input-label mb-2">리뷰 이벤트</label>
+                            <div class="flex flex-wrap gap-2" id="review-event-list">
+                                <button type="button" onclick="selectReviewEvent('선택안함')" class="method-chip" data-val="선택안함">선택안함</button>
+                                <button type="button" onclick="selectReviewEvent('홈페이지')" class="method-chip" data-val="홈페이지">🌐 홈페이지</button>
+                                <button type="button" onclick="selectReviewEvent('카카오맵')" class="method-chip" data-val="카카오맵">🗺️ 카카오맵</button>
+                                <button type="button" onclick="selectReviewEvent('트위터')" class="method-chip" data-val="트위터">𝕏 트위터</button>
+                                <button type="button" onclick="selectReviewEvent('블로그')" class="method-chip" data-val="블로그">📗 블로그</button>
+                            </div>
+                            <input type="hidden" id="edit-review-event">
+                        </div>
                     </div>
                 </form>
             </div>
             
             <div class="p-6 border-t border-slate-200 flex gap-4 rounded-b-[20px] bg-white">
-                <button type="button" onclick="confirmDelete()" class="w-1/4 bg-white border-2 border-[#FEE2E2] text-[#DC2626] hover:bg-[#FEF2F2] font-bold py-4 rounded-xl transition-colors text-sm">목록에서 삭제</button>
+                <button type="button" id="modal-delete-btn" onclick="confirmDelete()" class="w-1/4 bg-white border-2 border-[#FEE2E2] text-[#DC2626] hover:bg-[#FEF2F2] font-bold py-4 rounded-xl transition-colors text-sm">목록에서 삭제</button>
                 <button type="button" onclick="submitUpdate(event)" id="save-btn" class="w-3/4 bg-[#0064FF] hover:bg-[#0052D4] text-white font-bold py-4 rounded-xl shadow-md transition-colors text-base">수정 완료 (즉시반영)</button>
             </div>
         </div>
@@ -709,7 +730,8 @@
                     totalPrice: 'totalPrice', memo: 'memo', model: 'model',
                     name: 'name', phone: 'phone', orderTime: 'orderTime',
                     zipCode: 'zipcode', address: 'address', startDate: 'startDate',
-                    delivery: 'delivery', returnWay: 'returnMethod'
+                    delivery: 'delivery', returnWay: 'returnMethod',
+                    review: 'review'
                 };
                 for (const k in map) {
                     if (k in payload) {
@@ -3071,6 +3093,12 @@
             document.getElementById('edit-battery').checked = hasBattery;
             updateBatteryUI(hasBattery);
             setEditStatus(item.status || '예약신청');
+            // 리뷰이벤트 세팅
+            var reviewVal = item.review || '';
+            document.getElementById('edit-review-event').value = reviewVal;
+            document.querySelectorAll('#review-event-list .method-chip').forEach(function(b){
+                b.classList.toggle('active', b.dataset.val === reviewVal);
+            });
             
             root.style.display = 'flex';
             setTimeout(() => root.classList.add('active'), 10);
@@ -3135,7 +3163,8 @@
                 startDate: document.getElementById('edit-start').value, endDate: document.getElementById('edit-end').value, 
                 delivery: document.getElementById('edit-delivery').value, returnWay: document.getElementById('edit-return-way').value, 
                 status: document.getElementById('edit-status-val').value, tracking: document.getElementById('edit-tracking').value,
-                model: finalModel, memo: document.getElementById('edit-memo').value, totalPrice: document.getElementById('edit-price').value
+                model: finalModel, memo: document.getElementById('edit-memo').value, totalPrice: document.getElementById('edit-price').value,
+                review: document.getElementById('edit-review-event').value
             };
 
             const targetIndex = allData.findIndex(item => String(item.row) === String(rowId));
@@ -3145,7 +3174,8 @@
                 Object.assign(allData[targetIndex], { 
                     name: payload.name, phone: payload.phone, zipCode: payload.zipCode, address: payload.address, 
                     startDate: payload.startDate, endDate: payload.endDate, delivery: payload.delivery, returnWay: payload.returnWay, 
-                    status: payload.status, trackingNumber: payload.tracking, model: payload.model, memo: payload.memo, totalPrice: payload.totalPrice 
+                    status: payload.status, trackingNumber: payload.tracking, model: payload.model, memo: payload.memo, totalPrice: payload.totalPrice,
+                    review: payload.review
                 });
             }
 
@@ -3364,6 +3394,586 @@
             closeCalendarModal();
             filterData(false);
         }
-    </script>
+    
+        /* ====================================================================
+           리뷰 관리 (독립 모듈) — 예약 로직과 분리. 접두사 rv*
+           reviews 테이블: id,category,model,rating,text,name,rawName,date,image,venue,seat
+        ==================================================================== */
+        var rvState = { list: [], editingId: null, uploading: false };
+        var RV_BUCKET = 'review-images';
+        var RV_MODELS = ['갤럭시 S23 울트라','갤럭시 S24 울트라','갤럭시 S25 울트라','갤럭시 S26 울트라','아이폰 17 프로','아이폰 17 프로맥스'];
+
+        function rvEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+        function openReviewManager(){
+            document.getElementById('review-manager').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            rvFetch();
+        }
+        function closeReviewManager(){
+            document.getElementById('review-manager').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        async function rvFetch(){
+            var listEl = document.getElementById('rv-list');
+            listEl.innerHTML = '<div class="col-span-full text-center py-16 text-slate-400 font-bold">리뷰 불러오는 중...</div>';
+            try {
+                var res = await sb.from('reviews').select('*').order('id', { ascending: false });
+                if (res.error) throw res.error;
+                rvState.list = res.data || [];
+                document.getElementById('rv-count').innerText = rvState.list.length + '개';
+                rvRender();
+            } catch(e){
+                listEl.innerHTML = '<div class="col-span-full text-center py-16 text-rose-400 font-bold">불러오기 실패: ' + rvEsc(e.message) + '</div>';
+            }
+        }
+
+        function rvRender(){
+            var kw = (document.getElementById('rv-search').value || '').toLowerCase().trim();
+            var listEl = document.getElementById('rv-list');
+            var rows = rvState.list.filter(function(r){
+                if (!kw) return true;
+                return [r.name, r.model, r.text, r.venue, r.seat].some(function(v){ return String(v||'').toLowerCase().includes(kw); });
+            });
+            if (rows.length === 0){
+                listEl.innerHTML = '<div class="col-span-full text-center py-16 text-slate-400 font-bold">표시할 리뷰가 없습니다.</div>';
+                return;
+            }
+            listEl.innerHTML = rows.map(function(r){
+                var stars = '★★★★★'.slice(0, Number(r.rating)||0) + '☆☆☆☆☆'.slice(0, 5-(Number(r.rating)||0));
+                var img = r.image ? '<img src="'+rvEsc(r.image)+'" class="w-full h-40 object-cover" loading="lazy">' : '<div class="w-full h-40 bg-slate-100 flex items-center justify-center text-slate-300 text-xs">이미지 없음</div>';
+                return ''+
+                '<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">'+
+                    '<div class="relative">'+img+
+                        '<span class="absolute top-2 right-2 bg-black/55 text-white text-[11px] font-bold px-2 py-0.5 rounded-md">'+rvEsc(stars)+'</span>'+
+                    '</div>'+
+                    '<div class="p-3 flex flex-col flex-1">'+
+                        '<div class="flex items-center gap-1.5 mb-1">'+
+                            '<span class="text-[10px] font-extrabold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">'+rvEsc(r.model||'-')+'</span>'+
+                            '<span class="text-[11px] text-slate-500 font-bold">'+rvEsc(r.name||'-')+'</span>'+
+                        '</div>'+
+                        (r.venue||r.seat ? '<p class="text-[10px] text-slate-400 mb-1">📍 '+rvEsc(r.venue||'')+' '+rvEsc(r.seat||'')+'</p>' : '')+
+                        '<p class="text-xs text-slate-600 leading-relaxed line-clamp-3 flex-1">'+rvEsc(r.text||'')+'</p>'+
+                        '<p class="text-[10px] text-slate-300 mt-2">'+rvEsc(r.date||'')+'</p>'+
+                        '<div class="flex gap-2 mt-3 pt-3 border-t border-slate-100">'+
+                            '<button onclick="rvOpenEdit('+r.id+')" class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold py-2 rounded-lg transition-colors">수정</button>'+
+                            '<button onclick="rvDelete('+r.id+')" class="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-500 text-xs font-bold py-2 rounded-lg transition-colors">삭제</button>'+
+                        '</div>'+
+                    '</div>'+
+                '</div>';
+            }).join('');
+        }
+
+        function rvOpenEdit(id){
+            rvState.editingId = (id==null? null : id);
+            var r = id==null ? null : rvState.list.find(function(x){ return x.id===id; });
+            document.getElementById('rv-edit-title').innerText = id==null ? '＋ 새 리뷰 추가' : '리뷰 수정';
+            document.getElementById('rv-f-model').value = r ? (r.model||'') : '';
+            document.getElementById('rv-f-name').value  = r ? (r.name||'')  : '';
+            document.getElementById('rv-f-rating').value= r ? (Number(r.rating)||5) : 5;
+            document.getElementById('rv-f-venue').value = r ? (r.venue||'') : '';
+            document.getElementById('rv-f-seat').value  = r ? (r.seat||'')  : '';
+            document.getElementById('rv-f-text').value  = r ? (r.text||'')  : '';
+            document.getElementById('rv-f-image').value = r ? (r.image||'') : '';
+            document.getElementById('rv-f-date').value  = r ? (r.date||'')  : new Date().toLocaleString('ko-KR');
+            rvUpdatePreview();
+            document.getElementById('rv-file').value = '';
+            document.getElementById('review-edit-modal').classList.remove('hidden');
+        }
+        function rvCloseEdit(){ document.getElementById('review-edit-modal').classList.add('hidden'); }
+
+        function rvUpdatePreview(){
+            var url = document.getElementById('rv-f-image').value;
+            var box = document.getElementById('rv-preview');
+            box.innerHTML = url ? '<img src="'+rvEsc(url)+'" class="w-full h-full object-cover">' : '<span class="text-slate-300 text-xs">미리보기</span>';
+        }
+
+        async function rvHandleFile(input){
+            var file = input.files && input.files[0];
+            if (!file) return;
+            var btn = document.getElementById('rv-save-btn');
+            try {
+                rvState.uploading = true; btn.disabled = true; btn.innerText = '이미지 업로드 중...';
+                var ext = (file.type.split('/')[1] || 'jpg').replace('jpeg','jpg');
+                var path = 'reviews/' + Date.now() + '_' + Math.random().toString(36).slice(2,8) + '.' + ext;
+                var up = await sb.storage.from(RV_BUCKET).upload(path, file, { contentType: file.type });
+                if (up.error) throw up.error;
+                var pub = sb.storage.from(RV_BUCKET).getPublicUrl(path);
+                document.getElementById('rv-f-image').value = pub.data.publicUrl;
+                rvUpdatePreview();
+            } catch(e){
+                showAppAlert('이미지 업로드 실패: ' + e.message, '🚨 오류', '⚠️');
+            } finally {
+                rvState.uploading = false; btn.disabled = false; btn.innerText = rvState.editingId==null ? '리뷰 추가' : '수정 완료';
+            }
+        }
+
+        async function rvSave(){
+            var btn = document.getElementById('rv-save-btn');
+            var rec = {
+                model:  document.getElementById('rv-f-model').value.trim(),
+                name:   document.getElementById('rv-f-name').value.trim(),
+                rating: Number(document.getElementById('rv-f-rating').value) || 5,
+                venue:  document.getElementById('rv-f-venue').value.trim(),
+                seat:   document.getElementById('rv-f-seat').value.trim(),
+                text:   document.getElementById('rv-f-text').value.trim(),
+                image:  document.getElementById('rv-f-image').value.trim(),
+                date:   document.getElementById('rv-f-date').value.trim()
+            };
+            if (!rec.model || !rec.name || !rec.text){
+                showAppAlert('기종·작성자·내용은 필수입니다.', '입력 필요', '⚠️'); return;
+            }
+            btn.disabled = true; btn.innerText = '저장 중...';
+            try {
+                if (rvState.editingId == null){
+                    rec.id = Date.now();
+                    rec.category = '리뷰작성';
+                    rec.rawName = rec.name;
+                    var ins = await sb.from('reviews').insert(rec).select().single();
+                    if (ins.error) throw ins.error;
+                    rvState.list.unshift(ins.data);
+                } else {
+                    var upd = await sb.from('reviews').update(rec).eq('id', rvState.editingId).select().single();
+                    if (upd.error) throw upd.error;
+                    var i = rvState.list.findIndex(function(x){ return x.id===rvState.editingId; });
+                    if (i>=0) rvState.list[i] = upd.data;
+                }
+                document.getElementById('rv-count').innerText = rvState.list.length + '개';
+                rvRender();
+                rvCloseEdit();
+                showAppAlert(rvState.editingId==null ? '리뷰가 추가되었습니다.' : '리뷰가 수정되었습니다.', '완료', '✅');
+            } catch(e){
+                showAppAlert('저장 실패: ' + e.message, '🚨 오류', '⚠️');
+            } finally {
+                btn.disabled = false; btn.innerText = rvState.editingId==null ? '리뷰 추가' : '수정 완료';
+            }
+        }
+
+        function rvDelete(id){
+            var r = rvState.list.find(function(x){ return x.id===id; });
+            showAppConfirm('이 리뷰를 완전히 삭제하시겠습니까?\n('+(r?rvEsc(r.name):'')+' / 되돌릴 수 없습니다)', async function(){
+                try {
+                    var del = await sb.from('reviews').delete().eq('id', id);
+                    if (del.error) throw del.error;
+                    rvState.list = rvState.list.filter(function(x){ return x.id!==id; });
+                    document.getElementById('rv-count').innerText = rvState.list.length + '개';
+                    rvRender();
+                    showAppAlert('삭제되었습니다.', '완료', '🗑️');
+                } catch(e){
+                    showAppAlert('삭제 실패: ' + e.message, '🚨 오류', '⚠️');
+                }
+            }, '리뷰 삭제', '삭제', 'bg-rose-500', '🗑️');
+        }
+
+
+        /* ============================================================
+           신규 예약 생성 + 리뷰이벤트 선택 (수정 모달)
+        ============================================================ */
+
+        /* ---- 신규 예약 모달 열기/닫기 ---- */
+        function openAddModal() {
+            // 폼 초기화
+            ['add-name','add-phone','add-zipcode','add-address','add-schedule','add-account',
+             'add-device-id','add-price','add-tracking','add-memo','add-start','add-end']
+                .forEach(id => { var el=document.getElementById(id); if(el) el.value=''; });
+            document.getElementById('add-status-val').value = '예약신청';
+            document.getElementById('add-model-type').value = '';
+            document.getElementById('add-delivery').value = '';
+            document.getElementById('add-return').value = '';
+            document.getElementById('add-payment').value = '';
+            document.getElementById('add-insurance').value = '';
+            document.getElementById('add-review').value = '';
+            var bat = document.getElementById('add-battery'); if(bat) bat.checked = false;
+            var batUI = document.getElementById('add-battery-box-ui'); if(batUI) { batUI.classList.remove('!bg-amber-50','!border-amber-400','!text-amber-600'); }
+            // 상태 버튼 초기화
+            ['wait','hold','confirm','return','cancel'].forEach(function(k){
+                var b=document.getElementById('add-btn-status-'+k);
+                if(b) b.classList.toggle('active', k==='wait');
+            });
+            // 칩 초기화
+            ['add-model-list','add-delivery-list','add-return-list','add-payment-list','add-insurance-list','add-review-list'].forEach(function(id){
+                var el=document.getElementById(id); if(!el) return;
+                el.querySelectorAll('.method-chip,.model-select-chip').forEach(function(c){ c.classList.remove('active'); });
+            });
+            document.getElementById('add-reservation-modal').style.display = 'flex';
+        }
+        function closeAddModal() {
+            document.getElementById('add-reservation-modal').style.display = 'none';
+        }
+
+        /* ---- 상태 버튼 ---- */
+        function setAddStatus(val) {
+            document.getElementById('add-status-val').value = val;
+            var map = { '예약신청':'wait','대기':'hold','확정':'confirm','반납완료':'return','취소':'cancel' };
+            Object.values(map).forEach(function(k){
+                var b=document.getElementById('add-btn-status-'+k);
+                if(b) b.classList.toggle('active', map[val]===k);
+            });
+        }
+
+        /* ---- 모델 칩 ---- */
+        function selectAddModel(val) {
+            document.getElementById('add-model-type').value = val;
+            document.querySelectorAll('#add-model-list .model-select-chip').forEach(function(b){
+                b.classList.toggle('active', b.dataset.val === val);
+            });
+        }
+
+        /* ---- 보조배터리 토글 ---- */
+        function toggleAddBattery() {
+            var cb = document.getElementById('add-battery');
+            var ui = document.getElementById('add-battery-box-ui');
+            cb.checked = !cb.checked;
+            ui.classList.toggle('!bg-amber-50', cb.checked);
+            ui.classList.toggle('!border-amber-400', cb.checked);
+            ui.classList.toggle('!text-amber-600', cb.checked);
+        }
+
+        /* ---- 수령/반납 칩 ---- */
+        function selectAddMethod(type, val) {
+            var listId = type==='delivery' ? 'add-delivery-list' : 'add-return-list';
+            var hiddenId = type==='delivery' ? 'add-delivery' : 'add-return';
+            document.getElementById(hiddenId).value = val;
+            document.querySelectorAll('#'+listId+' .method-chip').forEach(function(b){
+                b.classList.toggle('active', b.dataset.val === val);
+            });
+        }
+
+        /* ---- 결제수단 칩 ---- */
+        function selectAddPayment(val) {
+            document.getElementById('add-payment').value = val;
+            document.querySelectorAll('#add-payment-list .method-chip').forEach(function(b){
+                b.classList.toggle('active', b.dataset.val === val);
+            });
+        }
+
+        /* ---- 보험 칩 ---- */
+        function selectAddInsurance(val) {
+            document.getElementById('add-insurance').value = val;
+            document.querySelectorAll('#add-insurance-list .method-chip').forEach(function(b){
+                b.classList.toggle('active', b.dataset.val === val);
+            });
+        }
+
+        /* ---- 리뷰이벤트 칩 (신규 모달) ---- */
+        function selectAddReview(val) {
+            document.getElementById('add-review').value = val;
+            document.querySelectorAll('#add-review-list .method-chip').forEach(function(b){
+                b.classList.toggle('active', b.dataset.val === val);
+            });
+        }
+
+        /* ---- 리뷰이벤트 칩 (수정 모달) ---- */
+        function selectReviewEvent(val) {
+            document.getElementById('edit-review-event').value = val;
+            document.querySelectorAll('#review-event-list .method-chip').forEach(function(b){
+                b.classList.toggle('active', b.dataset.val === val);
+            });
+        }
+
+        /* ---- 신규 예약 INSERT ---- */
+        async function submitAddReservation() {
+            var btn = document.getElementById('add-save-btn');
+            var name    = (document.getElementById('add-name').value || '').trim();
+            var phone   = (document.getElementById('add-phone').value || '').trim();
+            var modelType = document.getElementById('add-model-type').value;
+            var deviceId  = (document.getElementById('add-device-id').value || '').trim();
+            var isBattery = document.getElementById('add-battery').checked;
+
+            if (!name || !phone) {
+                showAppAlert('이름과 연락처는 필수입니다.', '입력 필요', '⚠️'); return;
+            }
+
+            var finalModel = (modelType === '기타' ? deviceId : modelType + deviceId) + (isBattery ? '+보조배터리' : '');
+            var rawPrice = (document.getElementById('add-price').value || '').replace(/[^0-9]/g,'');
+
+            var record = {
+                category:      '예약신청',
+                status:        document.getElementById('add-status-val').value || '예약신청',
+                orderTime:     new Date().toLocaleString('ko-KR'),
+                name:          name,
+                phone:         phone,
+                zipcode:       document.getElementById('add-zipcode').value.trim(),
+                address:       document.getElementById('add-address').value.trim(),
+                scheduleName:  document.getElementById('add-schedule').value.trim(),
+                account:       document.getElementById('add-account').value.trim(),
+                model:         finalModel,
+                battery:       isBattery ? '보조배터리' : '',
+                startDate:     document.getElementById('add-start').value,
+                endDate:       document.getElementById('add-end').value,
+                delivery:      document.getElementById('add-delivery').value,
+                returnMethod:  document.getElementById('add-return').value,
+                paymentMethod: document.getElementById('add-payment').value,
+                insurance:     document.getElementById('add-insurance').value,
+                review:        document.getElementById('add-review').value,
+                trackingNumber:document.getElementById('add-tracking').value.trim(),
+                memo:          document.getElementById('add-memo').value.trim(),
+                totalPrice:    rawPrice ? Number(rawPrice) : 0
+            };
+
+            btn.disabled = true; btn.innerText = '생성 중...';
+            try {
+                var res = await sb.from('reservations').insert(record).select().single();
+                if (res.error) throw res.error;
+                var newItem = mapRecord(res.data);
+                allData.unshift(newItem);
+                allData.sort(sortLogic);
+                filterData(true);
+                closeAddModal();
+                showAppAlert('새 예약이 생성되었습니다.\n이름: ' + name, '✅ 생성 완료', '🎉');
+            } catch(e) {
+                showAppAlert('생성 실패: ' + e.message, '🚨 오류', '⚠️');
+            } finally {
+                btn.disabled = false; btn.innerText = '예약 생성';
+            }
+        }
+
+
+</script>
+    <!-- ===================== 신규 예약 생성 모달 ===================== -->
+    <div id="add-reservation-modal" class="fixed inset-0 hidden flex items-center justify-center p-6" style="z-index: 9998;">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="closeAddModal()"></div>
+        <div class="bg-white rounded-[24px] w-full max-w-2xl relative z-10 shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+            <div class="px-8 py-5 border-b border-slate-200 flex justify-between items-center shrink-0">
+                <h2 class="text-xl font-black text-slate-900 flex items-center gap-2">📋 신규 예약 생성</h2>
+                <button onclick="closeAddModal()" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 transition-colors">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <div class="overflow-y-auto flex-1 bg-slate-50 p-6 space-y-4">
+
+                <!-- 고객 정보 -->
+                <div class="form-section bg-white shadow-sm">
+                    <div class="form-title">고객 정보</div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div><label class="input-label">이름 *</label><input type="text" id="add-name" class="input-field" placeholder="홍길동"></div>
+                        <div><label class="input-label">연락처 *</label><input type="text" id="add-phone" class="input-field font-tnum font-bold" placeholder="010-0000-0000"></div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="input-label">우편번호 / 배송지 주소</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="add-zipcode" placeholder="우편번호" class="input-field w-1/3 font-tnum text-center">
+                            <input type="text" id="add-address" placeholder="기본 주소 및 상세 주소" class="input-field w-2/3">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="input-label">일정명</label><input type="text" id="add-schedule" class="input-field" placeholder="예) 엔시티 콘서트"></div>
+                        <div><label class="input-label">환불 계좌</label><input type="text" id="add-account" class="input-field" placeholder="카카오뱅크 3333-00-0000000"></div>
+                    </div>
+                </div>
+
+                <!-- 진행 상태 -->
+                <div class="form-section bg-white shadow-sm">
+                    <div class="form-title">진행 상태</div>
+                    <input type="hidden" id="add-status-val" value="예약신청">
+                    <div class="grid grid-cols-5 gap-2">
+                        <button type="button" onclick="setAddStatus('예약신청')" id="add-btn-status-wait" class="status-btn active">신청</button>
+                        <button type="button" onclick="setAddStatus('대기')"     id="add-btn-status-hold"    class="status-btn">대기</button>
+                        <button type="button" onclick="setAddStatus('확정')"     id="add-btn-status-confirm" class="status-btn">확정</button>
+                        <button type="button" onclick="setAddStatus('반납완료')" id="add-btn-status-return"  class="status-btn">반납</button>
+                        <button type="button" onclick="setAddStatus('취소')"     id="add-btn-status-cancel"  class="status-btn">취소</button>
+                    </div>
+                </div>
+
+                <!-- 기기 배정 및 결제 -->
+                <div class="form-section bg-white shadow-sm">
+                    <div class="form-title">기기 배정 및 결제</div>
+                    <div class="mb-4">
+                        <label class="input-label mb-2">기기 모델</label>
+                        <div class="flex flex-wrap gap-2" id="add-model-list">
+                            <button type="button" onclick="selectAddModel('23U')"  class="model-select-chip" data-val="23U">23U</button>
+                            <button type="button" onclick="selectAddModel('24U')"  class="model-select-chip" data-val="24U">24U</button>
+                            <button type="button" onclick="selectAddModel('25U')"  class="model-select-chip" data-val="25U">25U</button>
+                            <button type="button" onclick="selectAddModel('26U')"  class="model-select-chip" data-val="26U">26U</button>
+                            <button type="button" onclick="selectAddModel('17P')"  class="model-select-chip" data-val="17P">17P</button>
+                            <button type="button" onclick="selectAddModel('17PM')" class="model-select-chip" data-val="17PM">17PM</button>
+                            <button type="button" onclick="selectAddModel('기타')" class="model-select-chip" data-val="기타">기타</button>
+                        </div>
+                        <input type="hidden" id="add-model-type">
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 mb-4">
+                        <div class="col-span-2"><label class="input-label">기기 상세 정보/번호</label><input type="text" id="add-device-id" placeholder="예: 화이트 12번" class="input-field font-tnum"></div>
+                        <div>
+                            <label class="input-label">보조배터리</label>
+                            <label class="checkbox-wrapper cursor-pointer block h-[46px]">
+                                <input type="checkbox" id="add-battery" class="hidden">
+                                <div id="add-battery-box-ui" class="w-full h-full border border-slate-300 rounded-lg flex items-center justify-center bg-white text-slate-500 hover:bg-slate-50 transition-all font-bold text-sm" onclick="toggleAddBattery()">⚡ 포함</div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div><label class="input-label">결제 금액</label><input type="text" id="add-price" placeholder="금액 입력" inputmode="numeric" class="input-field font-bold text-blue-600 font-tnum"></div>
+                        <div><label class="input-label">택배 송장번호</label><input type="text" id="add-tracking" placeholder="- 없이 숫자만" inputmode="numeric" class="input-field font-tnum font-bold"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="input-label mb-2">결제 수단</label>
+                            <div class="flex gap-2" id="add-payment-list">
+                                <button type="button" onclick="selectAddPayment('계좌이체')"        class="method-chip flex-1" data-val="계좌이체">계좌이체</button>
+                                <button type="button" onclick="selectAddPayment('네이버스토어결제')" class="method-chip flex-1" data-val="네이버스토어결제">카드/네이버</button>
+                            </div>
+                            <input type="hidden" id="add-payment">
+                        </div>
+                        <div>
+                            <label class="input-label mb-2">파손 보험</label>
+                            <div class="flex gap-2" id="add-insurance-list">
+                                <button type="button" onclick="selectAddInsurance('미가입')"   class="method-chip flex-1" data-val="미가입">미가입</button>
+                                <button type="button" onclick="selectAddInsurance('베이직')"   class="method-chip flex-1" data-val="베이직">베이직</button>
+                                <button type="button" onclick="selectAddInsurance('프리미엄')" class="method-chip flex-1" data-val="프리미엄">프리미엄</button>
+                            </div>
+                            <input type="hidden" id="add-insurance">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="input-label">관리자 메모</label>
+                        <textarea id="add-memo" rows="2" placeholder="참고사항 입력" class="input-field resize-y"></textarea>
+                    </div>
+                </div>
+
+                <!-- 대여 일정 및 방법 -->
+                <div class="form-section bg-white shadow-sm">
+                    <div class="form-title">대여 일정 및 방법</div>
+                    <div class="grid grid-cols-2 gap-4 mb-5">
+                        <div><label class="input-label">수령 예정일</label><input type="date" id="add-start" class="input-field font-tnum cursor-pointer"></div>
+                        <div><label class="input-label">반납 예정일</label><input type="date" id="add-end"   class="input-field font-tnum cursor-pointer"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6 mb-5">
+                        <div>
+                            <label class="input-label mb-2">수령 방법</label>
+                            <div class="flex flex-wrap gap-2" id="add-delivery-list">
+                                <button type="button" onclick="selectAddMethod('delivery','택배수령')"  class="method-chip" data-val="택배수령">택배</button>
+                                <button type="button" onclick="selectAddMethod('delivery','공연장수령')" class="method-chip" data-val="공연장수령">공연장</button>
+                                <button type="button" onclick="selectAddMethod('delivery','사무실수령')" class="method-chip" data-val="사무실수령">사무실</button>
+                                <button type="button" onclick="selectAddMethod('delivery','퀵수령')"    class="method-chip" data-val="퀵수령">퀵</button>
+                            </div>
+                            <input type="hidden" id="add-delivery">
+                        </div>
+                        <div>
+                            <label class="input-label mb-2">반납 방법</label>
+                            <div class="flex flex-wrap gap-2" id="add-return-list">
+                                <button type="button" onclick="selectAddMethod('return','택배반납')"  class="method-chip" data-val="택배반납">택배</button>
+                                <button type="button" onclick="selectAddMethod('return','공연장반납')" class="method-chip" data-val="공연장반납">공연장</button>
+                                <button type="button" onclick="selectAddMethod('return','당일반납')"  class="method-chip" data-val="당일반납">당일반납</button>
+                                <button type="button" onclick="selectAddMethod('return','사무실반납')" class="method-chip" data-val="사무실반납">사무실</button>
+                            </div>
+                            <input type="hidden" id="add-return">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="input-label mb-2">리뷰 이벤트</label>
+                        <div class="flex flex-wrap gap-2" id="add-review-list">
+                            <button type="button" onclick="selectAddReview('선택안함')" class="method-chip" data-val="선택안함">선택안함</button>
+                            <button type="button" onclick="selectAddReview('홈페이지')" class="method-chip" data-val="홈페이지">🌐 홈페이지</button>
+                            <button type="button" onclick="selectAddReview('카카오맵')" class="method-chip" data-val="카카오맵">🗺️ 카카오맵</button>
+                            <button type="button" onclick="selectAddReview('트위터')"   class="method-chip" data-val="트위터">𝕏 트위터</button>
+                            <button type="button" onclick="selectAddReview('블로그')"   class="method-chip" data-val="블로그">📗 블로그</button>
+                        </div>
+                        <input type="hidden" id="add-review">
+                    </div>
+                </div>
+
+            </div>
+            <div class="px-8 py-5 border-t border-slate-200 flex gap-4 bg-white shrink-0">
+                <button type="button" onclick="closeAddModal()" class="w-1/4 bg-white border-2 border-slate-200 text-slate-500 hover:bg-slate-50 font-bold py-4 rounded-xl transition-colors text-sm">취소</button>
+                <button type="button" id="add-save-btn" onclick="submitAddReservation()" class="w-3/4 bg-violet-600 hover:bg-violet-700 text-white font-bold py-4 rounded-xl shadow-md transition-colors text-base">예약 생성</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== 리뷰 관리 오버레이 ===================== -->
+    <div id="review-manager" class="hidden fixed inset-0 z-[120] bg-slate-50">
+        <div class="h-full flex flex-col">
+            <div class="bg-white border-b border-slate-200 shadow-sm shrink-0">
+                <div class="max-w-[1800px] mx-auto px-6 h-[72px] flex items-center gap-3">
+                    <span class="text-xl font-black text-indigo-950 tracking-tight flex items-center gap-1.5 whitespace-nowrap"><span class="text-2xl">⭐</span> 리뷰 관리</span>
+                    <span id="rv-count" class="bg-indigo-100 text-indigo-600 text-[11px] font-extrabold px-2.5 py-1 rounded-full">0개</span>
+                    <div class="flex-1"></div>
+                    <div class="w-[240px] shrink-0">
+                        <div class="relative flex items-center bg-indigo-50/50 border border-indigo-100 rounded-[20px] overflow-hidden focus-within:ring-2 focus-within:ring-indigo-300 focus-within:bg-white transition-all">
+                            <svg class="text-indigo-300 ml-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                            <input type="text" id="rv-search" onkeyup="rvRender()" placeholder="검색 (이름, 기종, 내용)" class="w-full bg-transparent border-none text-[13px] font-bold text-indigo-900 placeholder-indigo-300 outline-none p-3 pl-2.5">
+                        </div>
+                    </div>
+                    <button onclick="rvOpenEdit(null)" class="h-11 px-4 flex items-center gap-2 bg-violet-500 hover:bg-violet-600 rounded-[18px] text-[13px] font-bold text-white shadow-md shadow-violet-200 transition-all whitespace-nowrap shrink-0">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                        새 리뷰 추가
+                    </button>
+                    <button onclick="rvFetch()" class="h-11 px-4 flex items-center gap-2 bg-sky-400 hover:bg-sky-500 rounded-[18px] text-[13px] font-bold text-white shadow-md shadow-sky-200 transition-all whitespace-nowrap shrink-0">새로고침</button>
+                    <button onclick="closeReviewManager()" class="h-11 px-4 flex items-center gap-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-[18px] text-[13px] font-bold text-slate-500 shadow-sm transition-all whitespace-nowrap shrink-0">← 예약으로</button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto">
+                <div class="max-w-[1800px] mx-auto px-6 py-6">
+                    <div id="rv-list" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== 리뷰 추가/수정 모달 ===================== -->
+    <div id="review-edit-modal" class="hidden fixed inset-0 z-[130] bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
+                <h2 id="rv-edit-title" class="text-lg font-black text-slate-900">리뷰 수정</h2>
+                <button onclick="rvCloseEdit()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[12px] font-bold text-slate-500 mb-1 block">기종 *</label>
+                        <input list="rv-models" id="rv-f-model" placeholder="기종 선택/입력" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-indigo-300">
+                        <datalist id="rv-models">
+                            <option value="갤럭시 S23 울트라"></option><option value="갤럭시 S24 울트라"></option><option value="갤럭시 S25 울트라"></option><option value="갤럭시 S26 울트라"></option><option value="아이폰 17 프로"></option><option value="아이폰 17 프로맥스"></option>
+                        </datalist>
+                    </div>
+                    <div>
+                        <label class="text-[12px] font-bold text-slate-500 mb-1 block">작성자 *</label>
+                        <input id="rv-f-name" placeholder="예) 서*현" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-indigo-300">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="text-[12px] font-bold text-slate-500 mb-1 block">별점</label>
+                        <select id="rv-f-rating" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-indigo-300">
+                            <option value="5">★★★★★ (5)</option><option value="4">★★★★ (4)</option><option value="3">★★★ (3)</option><option value="2">★★ (2)</option><option value="1">★ (1)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[12px] font-bold text-slate-500 mb-1 block">공연장</label>
+                        <input id="rv-f-venue" placeholder="예) KSPO DOME" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-300">
+                    </div>
+                    <div>
+                        <label class="text-[12px] font-bold text-slate-500 mb-1 block">좌석</label>
+                        <input id="rv-f-seat" placeholder="예) 2층 4열" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-300">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[12px] font-bold text-slate-500 mb-1 block">내용 *</label>
+                    <textarea id="rv-f-text" rows="4" placeholder="후기 내용" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-300 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="text-[12px] font-bold text-slate-500 mb-1 block">이미지</label>
+                    <div class="flex gap-3 items-start">
+                        <div id="rv-preview" class="w-24 h-24 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0"><span class="text-slate-300 text-xs">미리보기</span></div>
+                        <div class="flex-1 space-y-2">
+                            <input type="file" id="rv-file" accept="image/*" onchange="rvHandleFile(this)" class="block w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-600 file:font-bold file:cursor-pointer">
+                            <input id="rv-f-image" oninput="rvUpdatePreview()" placeholder="또는 이미지 URL 직접 입력" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:border-indigo-300">
+                            <p class="text-[10px] text-slate-400">파일을 고르면 자동 업로드되어 URL이 채워집니다.</p>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[12px] font-bold text-slate-500 mb-1 block">작성일</label>
+                    <input id="rv-f-date" placeholder="예) 2026. 2. 23" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-300">
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 flex gap-3 shrink-0">
+                <button onclick="rvCloseEdit()" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl text-sm transition-colors">취소</button>
+                <button id="rv-save-btn" onclick="rvSave()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-sm transition-colors">수정 완료</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
