@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>예약 관리자 (PC 대시보드)</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 키 설정 파일 (serincam-config.js): URL·key는 여기에 한 번만 입력 -->
+    <script src="serincam-config.js"></script>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" />
     <style>
         :root {
@@ -137,30 +140,52 @@
 </head>
 <body>
 
+    <!-- 관리자 로그인 게이트 -->
+    <div id="login-gate" style="position:fixed; inset:0; z-index:9999; background:linear-gradient(135deg,#eef2ff,#fdf2f8); display:flex; align-items:center; justify-content:center; padding:20px;">
+        <div style="background:#fff; border-radius:24px; padding:36px 28px; width:100%; max-width:380px; box-shadow:0 20px 60px -15px rgba(99,102,241,0.3);">
+            <div style="text-align:center; margin-bottom:24px;">
+                <div style="font-size:40px; margin-bottom:8px;">🗂️</div>
+                <h1 style="font-size:20px; font-weight:800; color:#1e1b4b; margin:0;">세린캠 관리자</h1>
+                <p style="font-size:13px; color:#94a3b8; margin:6px 0 0;">로그인이 필요합니다</p>
+            </div>
+            <input id="login-pw" type="password" placeholder="비밀번호" autocomplete="current-password" autofocus
+                onkeydown="if(event.key==='Enter')doLogin()"
+                style="width:100%; padding:13px 14px; border:1px solid #e2e8f0; border-radius:12px; font-size:14px; margin-bottom:14px; box-sizing:border-box;">
+            <button onclick="doLogin()" id="login-btn"
+                style="width:100%; padding:14px; background:#4f46e5; color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer;">로그인</button>
+            <p id="login-err" style="color:#dc2626; font-size:13px; text-align:center; margin:12px 0 0; min-height:18px;"></p>
+        </div>
+    </div>
+
     <!-- 상단 네비게이션 바 -->
-    <header class="bg-white/90 backdrop-blur-xl border-b border-indigo-100/50 relative z-40 shadow-[0_4px_20px_-10px_rgba(99,102,241,0.08)] h-[72px] flex items-center px-6 md:px-8 transition-all">
-        <div class="flex-1 flex items-center gap-3">
-            <span class="text-xl font-black text-indigo-950 tracking-tight flex items-center gap-1.5"><span class="text-2xl drop-shadow-sm">🗂️</span> 세린캠 예약 대시보드</span>
+    <header class="bg-white/90 backdrop-blur-xl border-b border-indigo-100/50 relative z-40 shadow-[0_4px_20px_-10px_rgba(99,102,241,0.08)] h-[72px] flex items-center transition-all">
+      <div class="max-w-[1800px] w-full mx-auto flex items-center px-6">
+        <div class="flex items-center gap-3 shrink-0 mr-6">
+            <span class="text-xl font-black text-indigo-950 tracking-tight flex items-center gap-1.5 whitespace-nowrap"><span class="text-2xl drop-shadow-sm">🗂️</span> 대시보드</span>
             <span class="bg-pink-100 text-pink-500 text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-sm">v1.3</span>
         </div>
         
-        <div class="flex-1 max-w-md mx-auto">
-            <div class="relative flex items-center bg-indigo-50/50 border border-indigo-100 rounded-[20px] overflow-hidden focus-within:ring-2 focus-within:ring-indigo-300 focus-within:bg-white transition-all shadow-inner">
-                <svg class="text-indigo-300 ml-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                <input type="text" id="search-input" onkeyup="filterData()" placeholder="모든 정보 검색 (이름, 주소, 송장, 메모 등)" class="w-full bg-transparent border-none text-[13px] font-bold text-indigo-900 placeholder-indigo-300 outline-none p-3 pl-2.5">
+        <div class="flex-1 flex items-center gap-2 flex-nowrap">
+            <div class="w-[224px] shrink-0">
+                <div class="relative flex items-center bg-indigo-50/50 border border-indigo-100 rounded-[20px] overflow-hidden focus-within:ring-2 focus-within:ring-indigo-300 focus-within:bg-white transition-all shadow-inner">
+                    <svg class="text-indigo-300 ml-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="search-input" onkeyup="debouncedFilter()" placeholder="검색 (이름, 송장, 메모 등)" class="w-full bg-transparent border-none text-[13px] font-bold text-indigo-900 placeholder-indigo-300 outline-none p-3 pl-2.5">
+                </div>
             </div>
-        </div>
 
-        <div class="flex-1 flex justify-end items-center gap-2.5">
-            <button onclick="fetchData()" class="h-11 px-5 flex items-center gap-2 bg-sky-400 hover:bg-sky-500 rounded-[18px] text-[13px] font-bold text-white shadow-md shadow-sky-200 transition-all">
+            <button onclick="fetchData()" class="h-11 px-4 flex items-center gap-2 bg-sky-400 hover:bg-sky-500 rounded-[18px] text-[13px] font-bold text-white shadow-md shadow-sky-200 transition-all whitespace-nowrap shrink-0">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
                 최신 정보 불러오기
             </button>
-            <button onclick="toggleSortMode()" class="h-11 px-5 flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100/80 rounded-[18px] text-[13px] font-bold text-indigo-600 shadow-sm transition-all">
+            <button onclick="toggleSortMode()" class="h-11 px-4 flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100/80 rounded-[18px] text-[13px] font-bold text-indigo-600 shadow-sm transition-all whitespace-nowrap shrink-0">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
                 정렬: <span id="sort-mode-text" class="text-indigo-800 font-black">최신순</span>
             </button>
+            <button onclick="doLogout()" class="h-11 px-4 flex items-center gap-2 bg-white hover:bg-rose-50 border border-rose-100 rounded-[18px] text-[13px] font-bold text-rose-500 shadow-sm transition-all whitespace-nowrap shrink-0">
+                로그아웃
+            </button>
         </div>
+      </div>
     </header>
 
     <!-- 메인 레이아웃 -->
@@ -637,7 +662,111 @@
             }
         });
 
-        const API_URL = "https://script.google.com/macros/s/AKfycbz8M-LLBNxTVZRQmHWd82ebAZVsJbXOpzaQCHQVbkk6Q8EmRC1hdub27vW9uySwSHiHrA/exec"; 
+        // ===== Supabase 연결 (홈페이지와 동일한 값 입력) =====
+        // 키는 serincam-config.js 파일에서 불러옵니다 (이 파일엔 키를 적지 않습니다)
+        const SUPABASE_URL = (window.SERINCAM_CONFIG && window.SERINCAM_CONFIG.SUPABASE_URL) || "";
+        const SUPABASE_ANON_KEY = (window.SERINCAM_CONFIG && window.SERINCAM_CONFIG.SUPABASE_ANON_KEY) || "";
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+            alert("설정 파일(serincam-config.js)을 찾을 수 없거나 키가 비어 있습니다.\n관리자 파일과 같은 폴더에 serincam-config.js가 있는지 확인하세요.");
+        }
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const ADMIN_EMAIL = "kimpo97@naver.com"; // 로그인용 고정 아이디 (비밀번호만 입력)
+        const API_URL = "supabase"; // (호환용 더미값)
+
+        // "2026. 4. 17" / "2026-4-17" → "2026-04-17" (붙임표 형식). 그 외(예: "(+1일)")는 그대로.
+        function toDash(s) {
+            if (!s) return '';
+            s = String(s).trim();
+            const m = s.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+            if (!m) return s;
+            return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+        }
+
+        // Supabase 레코드 → 관리자 페이지가 기대하는 형태로 매핑
+        function mapRecord(r) {
+            return {
+                ...r,
+                row: r.id,
+                zipCode: r.zipcode || '',
+                returnWay: r.returnMethod || '',
+                startDate: toDash(r.startDate),   // 날짜 형식 통일 (7/5 표시 + 이번주 필터 정상화)
+                endDate: toDash(r.endDate),
+                sheetName: '예약내역'
+            };
+        }
+
+        // 기존 apiFetch(API_URL, {...}) 호출을 Supabase로 변환하는 래퍼 (응답 형태 호환)
+        async function apiFetch(_url, options) {
+            const payload = JSON.parse(options.body);
+            const id = Number(payload.row);
+            if (payload.type === 'delete') {
+                const { error } = await sb.from('reservations').delete().eq('id', id);
+                if (error) throw new Error(error.message);
+            } else {
+                const patch = {};
+                const map = {
+                    status: 'status', tracking: 'trackingNumber', endDate: 'endDate',
+                    totalPrice: 'totalPrice', memo: 'memo', model: 'model',
+                    name: 'name', phone: 'phone', orderTime: 'orderTime',
+                    zipCode: 'zipcode', address: 'address', startDate: 'startDate',
+                    delivery: 'delivery', returnWay: 'returnMethod'
+                };
+                for (const k in map) {
+                    if (k in payload) {
+                        let v = payload[k];
+                        if (map[k] === 'totalPrice') v = Number(String(v).replace(/[^0-9]/g, '')) || 0;
+                        patch[map[k]] = v;
+                    }
+                }
+                const { error } = await sb.from('reservations').update(patch).eq('id', id);
+                if (error) throw new Error(error.message);
+            }
+            return { json: async () => ({ result: 'success' }) };
+        }
+
+        // ===== 로그인 =====
+        async function doLogin() {
+            const pw = document.getElementById('login-pw').value;
+            const errEl = document.getElementById('login-err');
+            const btn = document.getElementById('login-btn');
+            errEl.innerText = '';
+            if (!pw) { errEl.innerText = '비밀번호를 입력하세요.'; return; }
+            btn.disabled = true; btn.innerText = '로그인 중...';
+            const { error } = await sb.auth.signInWithPassword({ email: ADMIN_EMAIL, password: pw });
+            btn.disabled = false; btn.innerText = '로그인';
+            if (error) { errEl.innerText = '비밀번호가 올바르지 않습니다.'; return; }
+            document.getElementById('login-gate').style.display = 'none';
+            startApp();
+        }
+        async function doLogout() { await sb.auth.signOut(); location.reload(); }
+
+        // ===== 일괄작업 묶음 처리 (동시 실행으로 빠르게) =====
+        function buildPatch(u) {
+            const patch = {};
+            if ('status' in u) patch.status = u.status;
+            if ('tracking' in u) patch.trackingNumber = u.tracking;
+            if ('endDate' in u) patch.endDate = u.endDate;
+            if ('totalPrice' in u) patch.totalPrice = Number(String(u.totalPrice).replace(/[^0-9]/g, '')) || 0;
+            if ('memo' in u) patch.memo = u.memo;
+            if ('model' in u) patch.model = u.model;
+            return patch;
+        }
+        // 여러 건 수정: 동시에 처리 (값이 서로 달라도 OK). 50건도 사실상 1회 왕복 시간.
+        async function sbBatchUpdate(updates) {
+            if (!updates || updates.length === 0) return;
+            const results = await Promise.all(updates.map(u =>
+                sb.from('reservations').update(buildPatch(u)).eq('id', Number(u.row))
+            ));
+            const failed = results.find(r => r.error);
+            if (failed) throw new Error(failed.error.message);
+        }
+        // 여러 건 삭제: 단 한 번의 명령으로 전부 삭제.
+        async function sbBatchDelete(targets) {
+            if (!targets || targets.length === 0) return;
+            const ids = targets.map(t => Number(t.row));
+            const { error } = await sb.from('reservations').delete().in('id', ids);
+            if (error) throw new Error(error.message);
+        }
         const MODEL_LIST = ['23U', '24U', '25U', '26U', '17P', '17PM'];
         const STATUS_PRIORITY = { '예약신청': 1, '대기': 2, '확정': 3, '반납완료': 4, '취소': 5 };
 
@@ -707,12 +836,20 @@
         let tempSelectedDates = [];
         let lastClickedCalDateStr = null; 
 
-        window.onload = () => {
+        function startApp() {
             renderUpcomingFilters(); 
             renderReturnUpcomingFilters(); 
             renderServiceFilters(); 
             updateSortUI();
             fetchData();
+        }
+
+        window.onload = async () => {
+            const { data } = await sb.auth.getSession();
+            if (data && data.session) {
+                document.getElementById('login-gate').style.display = 'none';
+                startApp();
+            }
         };
 
         function toggleGeneralFilters() {
@@ -736,12 +873,19 @@
         async function fetchData() {
             toggleLoading(true);
             try {
-                const res = await fetch(`${API_URL}?type=admin_list`, {
-                    method: 'GET',
-                    redirect: 'follow',
-                    headers: { 'Accept': 'application/json' }
-                });
-                const json = await res.json();
+                let all = [];
+                let from = 0;
+                const PAGE = 1000;
+                while (true) {
+                    const { data, error } = await sb.from('reservations')
+                        .select('*').order('id', { ascending: false })
+                        .range(from, from + PAGE - 1);
+                    if (error) throw new Error(error.message);
+                    all = all.concat(data);
+                    if (!data || data.length < PAGE) break;
+                    from += PAGE;
+                }
+                const json = { result: 'success', data: all.map(mapRecord) };
                 if(json.result === 'success') {
                     const validData = json.data.filter(item => item.name || item.phone || (item.model && String(item.model).trim() !== '')).map(item => {
                         let zc = String(item.zipCode || item.zipcode || '').replace(/^'/, '').trim();
@@ -1350,6 +1494,13 @@
                 if(loader) loader.classList.add('hidden'); 
                 if(header) { header.classList.add('flex'); header.classList.remove('hidden'); }
             }
+        }
+
+        // 검색 입력 디바운스: 타이핑이 잠깐 멈춘 뒤 한 번만 검색 (끊김 방지)
+        let _searchTimer = null;
+        function debouncedFilter() {
+            clearTimeout(_searchTimer);
+            _searchTimer = setTimeout(() => filterData(), 200);
         }
 
         function filterData(isSoftRefresh = false) {
@@ -2012,17 +2163,7 @@
             showAppAlert(`${updates.length}건의 상태를 '${newStatus}'(으)로 일괄 변경했습니다.`, "일괄 변경 완료", "✅");
 
             try {
-                for (const u of updates) {
-                    const payload = { type: 'update', row: u.row, sheetName: '예약내역', status: u.status, orderTime: u.orderTime, phone: u.phone };
-                    const res = await fetch(API_URL, { 
-                        method: 'POST', 
-                        redirect: 'follow',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify(payload) 
-                    });
-                    const data = await res.json();
-                    if(data.result !== 'success') throw new Error("서버 오류");
-                }
+                await sbBatchUpdate(updates);
             } catch (err) {
                 console.error("일괄 저장 실패", err);
                 originalDataBackup.forEach(backup => { Object.assign(allData[backup.index], backup.data); });
@@ -2054,17 +2195,7 @@
                 showAppAlert(`${rowsToDelete.length}건의 예약이 완전히 삭제되었습니다.`, "일괄 삭제 완료", "🗑️");
 
                 try {
-                    for (const t of deleteTargets) {
-                        const payload = { type: 'delete', row: t.row, sheetName: '예약내역', orderTime: t.orderTime, phone: t.phone };
-                        const res = await fetch(API_URL, {
-                            method: 'POST',
-                            redirect: 'follow',
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                            body: JSON.stringify(payload)
-                        });
-                        const data = await res.json();
-                        if(data.result !== 'success') throw new Error("서버 오류");
-                    }
+                    await sbBatchDelete(deleteTargets);
                 } catch (err) {
                     console.error("일괄 삭제 실패", err);
                     allData = [...allData, ...originalDataBackup];
@@ -2245,17 +2376,7 @@
             showAppAlert(`${updates.length}건의 송장번호를 일괄 배정했습니다.`, "일괄 배정 완료", "✅");
 
             try {
-                for (const u of updates) {
-                    const payload = { type: 'update', row: u.row, sheetName: '예약내역', tracking: u.tracking, orderTime: u.orderTime, phone: u.phone };
-                    const res = await fetch(API_URL, { 
-                        method: 'POST', 
-                        redirect: 'follow',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify(payload) 
-                    });
-                    const data = await res.json();
-                    if(data.result !== 'success') throw new Error("서버 오류");
-                }
+                await sbBatchUpdate(updates);
             } catch (err) {
                 console.error("송장 일괄 저장 실패", err);
                 originalDataBackup.forEach(backup => { Object.assign(allData[backup.index], backup.data); });
@@ -2310,17 +2431,7 @@
             showAppAlert(`${updates.length}건의 반납일이 1일 연장되고, 결제금액이 자동 인상되었습니다.`, "연장 완료", "✅");
 
             try {
-                for (const u of updates) {
-                    const payload = { type: 'update', row: u.row, sheetName: '예약내역', endDate: u.endDate, totalPrice: u.totalPrice, orderTime: u.orderTime, phone: u.phone };
-                    const res = await fetch(API_URL, { 
-                        method: 'POST', 
-                        redirect: 'follow',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify(payload) 
-                    });
-                    const data = await res.json();
-                    if(data.result !== 'success') throw new Error("서버 오류");
-                }
+                await sbBatchUpdate(updates);
             } catch (err) {
                 originalDataBackup.forEach(backup => { Object.assign(allData[backup.index], backup.data); });
                 filterData(true);
@@ -2365,17 +2476,7 @@
             showAppAlert(`${updates.length}건의 메모에 백업이 추가되고, 결제금액(+10,000)이 반영되었습니다.`, "데이터 백업 추가 완료", "✅");
 
             try {
-                for (const u of updates) {
-                    const payload = { type: 'update', row: u.row, sheetName: '예약내역', memo: u.memo, totalPrice: u.totalPrice, orderTime: u.orderTime, phone: u.phone };
-                    const res = await fetch(API_URL, { 
-                        method: 'POST', 
-                        redirect: 'follow',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify(payload) 
-                    });
-                    const data = await res.json();
-                    if(data.result !== 'success') throw new Error("서버 오류");
-                }
+                await sbBatchUpdate(updates);
             } catch (err) {
                 originalDataBackup.forEach(backup => { Object.assign(allData[backup.index], backup.data); });
                 filterData(true);
@@ -2413,17 +2514,7 @@
             showAppAlert(`${updates.length}건의 메모 상태를 '${status}'(으)로 일괄 변경했습니다.`, "백업 상태 업데이트", "✅");
 
             try {
-                for (const u of updates) {
-                    const payload = { type: 'update', row: u.row, sheetName: '예약내역', memo: u.memo, orderTime: u.orderTime, phone: u.phone };
-                    const res = await fetch(API_URL, { 
-                        method: 'POST', 
-                        redirect: 'follow',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify(payload) 
-                    });
-                    const data = await res.json();
-                    if(data.result !== 'success') throw new Error("서버 오류");
-                }
+                await sbBatchUpdate(updates);
             } catch (err) {
                 originalDataBackup.forEach(backup => { Object.assign(allData[backup.index], backup.data); });
                 filterData(true);
@@ -2792,7 +2883,7 @@
                     status: item.status || '', tracking: item.trackingNumber || '', model: finalModel, memo: item.memo || '', totalPrice: item.totalPrice || 0
                 };
 
-                fetch(API_URL, { 
+                apiFetch(API_URL, { 
                     method: 'POST', 
                     redirect: 'follow',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -2884,7 +2975,7 @@
                     status: item.status || '', tracking: newTracking, model: item.model || '', memo: item.memo || '', totalPrice: item.totalPrice || 0
                 };
 
-                fetch(API_URL, { 
+                apiFetch(API_URL, { 
                     method: 'POST', 
                     redirect: 'follow',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -3063,7 +3154,7 @@
             showAppAlert("수정 내역이 화면에 즉시 반영되었습니다.", "완료", "✅"); 
             btn.innerText = '수정 완료 (즉시반영)'; btn.disabled = false;
 
-            fetch(API_URL, { 
+            apiFetch(API_URL, { 
                 method: 'POST', 
                 redirect: 'follow',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -3094,7 +3185,7 @@
                 closeModal();
                 showAppAlert("삭제 처리되었습니다.", "완료", "🗑️");
                 
-                fetch(API_URL, { 
+                apiFetch(API_URL, { 
                     method: 'POST', 
                     redirect: 'follow',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
