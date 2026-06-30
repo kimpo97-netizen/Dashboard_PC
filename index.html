@@ -457,15 +457,16 @@
                         </div>
                         <div class="grid grid-cols-2 gap-4 mb-4">
                             <div class="input-group"><label class="input-label">이름</label><input type="text" id="edit-name" class="input-field"></div>
-                            <div class="input-group"><label class="input-label">연락처</label><input type="text" id="edit-phone" class="input-field font-tnum font-bold"></div>
+                            <div class="input-group"><label class="input-label">연락처</label><input type="text" id="edit-phone" class="input-field font-tnum font-bold" oninput="this.value=autoHyphen(this.value)"></div>
                         </div>
-                        <div class="grid grid-cols-1 gap-2">
+                        <div class="grid grid-cols-1 gap-2 mb-4">
                             <label class="input-label">우편번호 / 배송지 주소</label>
                             <div class="flex gap-2">
                                 <input type="text" id="edit-zipcode" placeholder="우편번호" class="input-field w-1/3 font-tnum text-center">
                                 <input type="text" id="edit-address" placeholder="기본 주소 및 상세 주소" class="input-field w-2/3">
                             </div>
                         </div>
+                        <div><label class="input-label">공연명 / 일정명</label><input type="text" id="edit-schedule" class="input-field" placeholder="예) 엔시티 콘서트"></div>
                     </div>
 
                     <div class="form-section shadow-sm bg-white">
@@ -731,7 +732,7 @@
                     name: 'name', phone: 'phone', orderTime: 'orderTime',
                     zipCode: 'zipcode', address: 'address', startDate: 'startDate',
                     delivery: 'delivery', returnWay: 'returnMethod',
-                    review: 'review'
+                    review: 'review', scheduleName: 'scheduleName'
                 };
                 for (const k in map) {
                     if (k in payload) {
@@ -3048,6 +3049,7 @@
             if(!root) return;
             document.getElementById('edit-row').value = item.row;
             document.getElementById('edit-sheet-name').value = item.sheetName || '예약내역'; 
+            document.getElementById('edit-schedule').value = item.scheduleName || '';
             
             document.getElementById('edit-order-time').value = item.orderTime || ''; 
             
@@ -3160,6 +3162,7 @@
                 orderTime: document.getElementById('edit-order-time').value,
                 name: document.getElementById('edit-name').value, phone: document.getElementById('edit-phone').value,
                 zipCode: document.getElementById('edit-zipcode').value, address: document.getElementById('edit-address').value,
+                scheduleName: document.getElementById('edit-schedule').value,
                 startDate: document.getElementById('edit-start').value, endDate: document.getElementById('edit-end').value, 
                 delivery: document.getElementById('edit-delivery').value, returnWay: document.getElementById('edit-return-way').value, 
                 status: document.getElementById('edit-status-val').value, tracking: document.getElementById('edit-tracking').value,
@@ -3175,7 +3178,7 @@
                     name: payload.name, phone: payload.phone, zipCode: payload.zipCode, address: payload.address, 
                     startDate: payload.startDate, endDate: payload.endDate, delivery: payload.delivery, returnWay: payload.returnWay, 
                     status: payload.status, trackingNumber: payload.tracking, model: payload.model, memo: payload.memo, totalPrice: payload.totalPrice,
-                    review: payload.review
+                    review: payload.review, scheduleName: payload.scheduleName
                 });
             }
 
@@ -3605,11 +3608,19 @@
         /* ---- 상태 버튼 ---- */
         function setAddStatus(val) {
             document.getElementById('add-status-val').value = val;
-            var map = { '예약신청':'wait','대기':'hold','확정':'confirm','반납완료':'return','취소':'cancel' };
-            Object.values(map).forEach(function(k){
+            ['wait','hold','confirm','return','cancel'].forEach(function(k){
                 var b=document.getElementById('add-btn-status-'+k);
-                if(b) b.classList.toggle('active', map[val]===k);
+                if(b){ b.style.backgroundColor=''; b.style.color=''; b.style.borderColor=''; }
             });
+            var map = { '예약신청':'wait','대기':'hold','확정':'confirm','반납완료':'return','취소':'cancel' };
+            var activeBtn = document.getElementById('add-btn-status-'+(map[val]||''));
+            if(activeBtn){
+                if(val==='예약신청'){ activeBtn.style.backgroundColor='#FFF7ED'; activeBtn.style.color='#C2410C'; activeBtn.style.borderColor='#FDBA74'; }
+                else if(val==='확정'){  activeBtn.style.backgroundColor='#0064FF'; activeBtn.style.color='white'; activeBtn.style.borderColor='#0064FF'; }
+                else if(val==='반납완료'){ activeBtn.style.backgroundColor='#4B5563'; activeBtn.style.color='white'; activeBtn.style.borderColor='#4B5563'; }
+                else if(val==='취소'){  activeBtn.style.backgroundColor='#DC2626'; activeBtn.style.color='white'; activeBtn.style.borderColor='#DC2626'; }
+                else if(val==='대기'){  activeBtn.style.backgroundColor='#F5F3FF'; activeBtn.style.color='#7C3AED'; activeBtn.style.borderColor='#DDD6FE'; }
+            }
         }
 
         /* ---- 모델 칩 ---- */
@@ -3662,6 +3673,14 @@
             document.querySelectorAll('#add-review-list .method-chip').forEach(function(b){
                 b.classList.toggle('active', b.dataset.val === val);
             });
+        }
+
+        /* ---- 전화번호 자동 하이픈 ---- */
+        function autoHyphen(v) {
+            var d = v.replace(/[^0-9]/g, '').slice(0, 11);
+            if (d.length < 4) return d;
+            if (d.length < 8) return d.slice(0,3) + '-' + d.slice(3);
+            return d.slice(0,3) + '-' + d.slice(3,7) + '-' + d.slice(7);
         }
 
         /* ---- 리뷰이벤트 칩 (수정 모달) ---- */
@@ -3748,7 +3767,7 @@
                     <div class="form-title">고객 정보</div>
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div><label class="input-label">이름 *</label><input type="text" id="add-name" class="input-field" placeholder="홍길동"></div>
-                        <div><label class="input-label">연락처 *</label><input type="text" id="add-phone" class="input-field font-tnum font-bold" placeholder="010-0000-0000"></div>
+                        <div><label class="input-label">연락처 *</label><input type="text" id="add-phone" class="input-field font-tnum font-bold" placeholder="010-0000-0000" oninput="this.value=autoHyphen(this.value)"></div>
                     </div>
                     <div class="mb-4">
                         <label class="input-label">우편번호 / 배송지 주소</label>
