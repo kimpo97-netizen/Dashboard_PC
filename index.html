@@ -189,6 +189,9 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14 2 9.27l7.1-1.01z"/></svg>
                 리뷰 관리
             </button>
+            <button onclick="openTodayPostModal()" class="h-11 px-4 flex items-center gap-2 bg-orange-400 hover:bg-orange-500 rounded-[18px] text-[13px] font-bold text-white shadow-md shadow-orange-200 transition-all whitespace-nowrap shrink-0">
+                📦 오늘 등록 목록
+            </button>
             <button onclick="doLogout()" class="h-11 px-4 flex items-center gap-2 bg-white hover:bg-rose-50 border border-rose-100 rounded-[18px] text-[13px] font-bold text-rose-500 shadow-sm transition-all whitespace-nowrap shrink-0">
                 로그아웃
             </button>
@@ -666,6 +669,33 @@
         </div>
     </div>
 
+    <!-- 오늘 우체국 배송등록 목록 모달 -->
+    <div id="today-post-modal" class="fixed inset-0 hidden flex items-center justify-center p-6" style="z-index: 9997;">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="closeTodayPostModal()"></div>
+        <div class="bg-white rounded-[24px] p-6 w-full max-w-lg relative z-10 shadow-2xl flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-xl font-black text-slate-900">📦 오늘 우체국 등록 목록 (<span id="today-post-count">0</span>건)</h3>
+                <button onclick="closeTodayPostModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <div class="flex items-center justify-between mb-3 px-1">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" id="today-post-select-all" onclick="toggleTodayPostSelectAll(event)" class="checkbox-custom">
+                    <span class="text-[12px] font-bold text-slate-500">전체선택</span>
+                </label>
+                <span class="text-[12px] font-bold text-orange-600">선택 <span id="today-post-selected-count">0</span>건</span>
+            </div>
+            <div id="today-post-list" class="overflow-y-auto flex-1 bg-slate-50 rounded-xl border border-slate-200 p-2.5 space-y-2"></div>
+            <div class="pt-4 mt-1 border-t border-slate-100">
+                <button onclick="submitTodayPostTracking()" id="today-post-tracking-btn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    선택 항목 송장 입력
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- 맨 위로 가기 버튼 -->
     <button id="scrollToTopBtn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="fixed bottom-8 right-8 w-12 h-12 bg-white border border-slate-200 text-slate-600 hover:text-sky-500 hover:border-sky-300 hover:bg-sky-50 rounded-full shadow-lg shadow-slate-200/50 transition-all duration-300 transform translate-y-20 opacity-0 z-[100] pointer-events-none flex items-center justify-center cursor-pointer group">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="group-hover:-translate-y-0.5 transition-transform"><path d="m18 15-6-6-6 6"/></svg>
@@ -713,6 +743,7 @@
                 returnWay: r.returnMethod || '',
                 startDate: toDash(r.startDate),   // 날짜 형식 통일 (7/5 표시 + 이번주 필터 정상화)
                 endDate: toDash(r.endDate),
+                postRegisteredAt: r.postRegisteredAt || null,
                 sheetName: '예약내역'
             };
         }
@@ -2169,6 +2200,31 @@
         async function bulkUpdateStatus(newStatus) {
             if (selectedRows.length === 0) return;
 
+            if (newStatus === '반납완료') {
+                const today = new Date(); today.setHours(0,0,0,0);
+                const early = selectedRows
+                    .map(rowId => allData.find(i => String(i.row) === String(rowId)))
+                    .filter(item => {
+                        if (!item || !item.startDate) return false;
+                        const s = new Date(item.startDate); s.setHours(0,0,0,0);
+                        return s > today;
+                    });
+                if (early.length > 0) {
+                    const names = early.map(i => `${i.name}(${i.startDate})`).join(', ');
+                    showAppConfirm(
+                        `다음 ${early.length}건은 대여 시작일이 아직 되지 않았습니다:\n${names}\n\n그래도 전체 '반납완료' 처리하시겠습니까?`,
+                        () => proceedBulkUpdateStatus(newStatus),
+                        "⚠️ 시작일 이전 반납 처리", "그래도 변경", "bg-amber-500", "⚠️"
+                    );
+                    return;
+                }
+            }
+            proceedBulkUpdateStatus(newStatus);
+        }
+
+        async function proceedBulkUpdateStatus(newStatus) {
+            if (selectedRows.length === 0) return;
+
             const originalDataBackup = [];
             const updates = []; 
             
@@ -2228,7 +2284,7 @@
             }, "일괄 삭제", "삭제하기", "bg-[#DC2626]", "🗑️");
         }
 
-        function copyForPostOffice() {
+        async function copyForPostOffice() {
             if (selectedRows.length === 0) return;
 
             const sortedSelectedRows = [...selectedRows].sort((a, b) => {
@@ -2238,6 +2294,9 @@
             });
 
             let copyText = "";
+            const nowIso = new Date().toISOString();
+            const updates = [];
+
             sortedSelectedRows.forEach(rowId => {
                 const item = allData.find(i => String(i.row) === String(rowId));
                 if (item) {
@@ -2254,6 +2313,9 @@
                     else if (phoneNum.length === 10) phone = `${phoneNum.slice(0,3)}-${phoneNum.slice(3,6)}-${phoneNum.slice(6)}`;
                     
                     copyText += `${model}\t${name}\t${zipCode}\t${address}\t${phone}\n`;
+
+                    item.postRegisteredAt = nowIso;
+                    updates.push({ id: Number(item.row), postRegisteredAt: nowIso });
                 }
             });
 
@@ -2264,7 +2326,88 @@
             document.execCommand('copy');
             document.body.removeChild(t);
 
-            showAppAlert(`${selectedRows.length}건의 정보가 엑셀용으로 복사되었습니다.`, "우체국 배송등록", "📦");
+            try {
+                await Promise.all(updates.map(u => sb.from('reservations').update({ postRegisteredAt: u.postRegisteredAt }).eq('id', u.id)));
+            } catch (e) {
+                console.error("postRegisteredAt 저장 실패", e);
+            }
+
+            filterData(true);
+            showAppAlert(`${selectedRows.length}건의 정보가 엑셀용으로 복사되고, '오늘 등록' 목록에 반영되었습니다.`, "우체국 배송등록", "📦");
+        }
+
+        let todayPostList = [];
+        let todayPostSelected = [];
+
+        function openTodayPostModal() {
+            const today = new Date(); today.setHours(0,0,0,0);
+            todayPostList = allData.filter(item => {
+                if (!item.postRegisteredAt) return false;
+                const d = new Date(item.postRegisteredAt); d.setHours(0,0,0,0);
+                return d.getTime() === today.getTime();
+            }).sort((a,b) => new Date(b.postRegisteredAt) - new Date(a.postRegisteredAt));
+
+            todayPostSelected = [];
+
+            document.getElementById('today-post-count').innerText = todayPostList.length;
+            const container = document.getElementById('today-post-list');
+            if (todayPostList.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 text-slate-400 font-bold text-sm">오늘 등록된 건이 없습니다.</div>`;
+            } else {
+                container.innerHTML = todayPostList.map(item => {
+                    const t = new Date(item.postRegisteredAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: 'numeric', hour12: true });
+                    return `<div class="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm cursor-pointer hover:border-orange-200 transition-colors" onclick="toggleTodayPostRow(event, '${item.row}')">
+                        <input type="checkbox" class="checkbox-custom shrink-0 today-post-row-checkbox" data-row="${item.row}" onclick="toggleTodayPostRow(event, '${item.row}')">
+                        <div class="flex flex-col min-w-0 flex-1">
+                            <span class="text-[13px] font-black text-slate-800 truncate">${item.name} <span class="text-slate-400 font-bold text-[11px]">(${item.phone||'-'})</span></span>
+                            <span class="text-[11px] text-blue-600 font-bold mt-0.5">${(item.model||'').replace(/\+?\s*보조배터리/g,'').trim()} · 송장 ${item.trackingNumber||'미입력'}</span>
+                        </div>
+                        <span class="text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-1 rounded-lg shrink-0">${t}</span>
+                    </div>`;
+                }).join('');
+            }
+            updateTodayPostSelectionUI();
+            document.getElementById('today-post-modal').classList.remove('hidden');
+        }
+
+        function toggleTodayPostRow(e, rowId) {
+            if (e) e.stopPropagation();
+            rowId = String(rowId);
+            const idx = todayPostSelected.indexOf(rowId);
+            if (idx > -1) todayPostSelected.splice(idx, 1);
+            else todayPostSelected.push(rowId);
+            updateTodayPostSelectionUI();
+        }
+
+        function toggleTodayPostSelectAll(e) {
+            if (e.target.checked) todayPostSelected = todayPostList.map(item => String(item.row));
+            else todayPostSelected = [];
+            updateTodayPostSelectionUI();
+        }
+
+        function updateTodayPostSelectionUI() {
+            document.querySelectorAll('.today-post-row-checkbox').forEach(cb => {
+                cb.checked = todayPostSelected.includes(String(cb.dataset.row));
+            });
+            const countEl = document.getElementById('today-post-selected-count');
+            if (countEl) countEl.innerText = todayPostSelected.length;
+            const selectAllCb = document.getElementById('today-post-select-all');
+            if (selectAllCb) selectAllCb.checked = todayPostList.length > 0 && todayPostSelected.length === todayPostList.length;
+            const btn = document.getElementById('today-post-tracking-btn');
+            if (btn) btn.disabled = todayPostSelected.length === 0;
+        }
+
+        function submitTodayPostTracking() {
+            if (todayPostSelected.length === 0) return;
+            selectedRows = [...todayPostSelected];
+            renderList(currentlyFilteredList);
+            updateBulkActionBar();
+            closeTodayPostModal();
+            openBulkTrackingModal();
+        }
+
+        function closeTodayPostModal() {
+            document.getElementById('today-post-modal').classList.add('hidden');
         }
 
         function openBulkTrackingModal() {
@@ -3018,6 +3161,25 @@
         }
 
         function setEditStatus(status) {
+            if (status === '반납완료') {
+                const startVal = document.getElementById('edit-start').value;
+                if (startVal) {
+                    const start = new Date(startVal); start.setHours(0,0,0,0);
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    if (start > today) {
+                        showAppConfirm(
+                            `대여 시작 예정일(${startVal})이 아직 되지 않았습니다.\n정말 '반납완료'로 변경하시겠습니까?`,
+                            () => applyEditStatus(status),
+                            "⚠️ 시작일 이전 반납 처리", "그래도 변경", "bg-amber-500", "⚠️"
+                        );
+                        return;
+                    }
+                }
+            }
+            applyEditStatus(status);
+        }
+
+        function applyEditStatus(status) {
             document.getElementById('edit-status-val').value = status;
             ['wait','confirm','return','cancel','hold'].forEach(k => {
                 const btn = document.getElementById(`btn-status-${k}`);
