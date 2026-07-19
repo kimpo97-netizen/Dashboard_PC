@@ -3381,6 +3381,30 @@
                 });
             }
 
+            // [NEW] 연장신청 건을 '확정'으로 저장하면, origin_ref로 원예약을 찾아 반납일을 자동 연장
+            if (targetIndex !== -1 && originalData && String(originalData.category || '').includes('연장') &&
+                payload.status === '확정' && originalData.status !== '확정' && originalData.origin_ref) {
+                try {
+                    const ref = JSON.parse(originalData.origin_ref);
+                    const origIdx = allData.findIndex(r =>
+                        String(r.orderTime || '') === String(ref.orderTime || '') &&
+                        String(r.name || '') === String(ref.name || '') &&
+                        String(r.phone || '') === String(ref.phone || '') &&
+                        toDash(r.startDate) === toDash(ref.startDate) &&
+                        toDash(r.endDate) === toDash(ref.endDate) &&
+                        String(r.model || '') === String(ref.model || '')
+                    );
+                    if (origIdx !== -1) {
+                        const newEndDate = toDash(payload.endDate);
+                        allData[origIdx].endDate = newEndDate;
+                        sb.from('reservations').update({ endDate: newEndDate }).eq('id', Number(allData[origIdx].row))
+                          .then(({ error }) => { if (error) console.error('원예약 반납일 자동연장 실패:', error); });
+                    } else {
+                        console.warn('연장신청 확정: origin_ref와 일치하는 원예약을 찾지 못했습니다.', ref);
+                    }
+                } catch (e) { console.error('origin_ref 파싱 실패:', e); }
+            }
+
             filterData(true); 
             closeModal();
             showAppAlert("수정 내역이 화면에 즉시 반영되었습니다.", "완료", "✅"); 
