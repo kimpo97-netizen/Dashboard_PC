@@ -198,6 +198,9 @@
             <button onclick="openTrash()" class="h-11 px-4 flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-[18px] text-[13px] font-bold text-slate-600 shadow-sm transition-all whitespace-nowrap shrink-0">
                 🗑️ 휴지통
             </button>
+            <button onclick="openAddonArchive()" class="h-11 px-4 flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-[18px] text-[13px] font-bold text-slate-600 shadow-sm transition-all whitespace-nowrap shrink-0">
+                📥 추가옵션 보관함
+            </button>
             <button onclick="doLogout()" class="h-11 px-4 flex items-center gap-2 bg-white hover:bg-rose-50 border border-rose-100 rounded-[18px] text-[13px] font-bold text-rose-500 shadow-sm transition-all whitespace-nowrap shrink-0">
                 로그아웃
             </button>
@@ -3505,13 +3508,18 @@
             document.getElementById('trash-overlay').classList.add('hidden');
             document.body.style.overflow = '';
         }
+        // [NEW] 보관함 대상(신청건이 '확정'되어 자동 보관된 것)인지 판별 — 휴지통에서는 제외, 추가옵션 보관함에서만 노출
+        function isAddonArchived(item) {
+            return !!(item && item.category && item.category !== '예약신청' && item.status === '확정');
+        }
         async function loadTrash() {
             const list = document.getElementById('trash-list');
             list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-10">불러오는 중...</div>`;
             try {
                 const { data, error } = await sb.from('reservations').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false });
                 if (error) throw error;
-                trashItems = (data || []).map(mapRecord);
+                // [NEW] 추가옵션 보관함으로 자동 이동된 신청건은 휴지통 목록에서 제외
+                trashItems = (data || []).map(mapRecord).filter(it => !isAddonArchived(it));
                 renderTrashList();
             } catch (e) {
                 list.innerHTML = `<div class="text-center text-rose-500 text-sm font-bold py-10 px-4 leading-relaxed">휴지통을 불러오지 못했어요.<br>(reservations 테이블에 deleted_at 컬럼이 있는지 확인해주세요)<br><span class="text-slate-400 font-medium">${e.message || ''}</span></div>`;
@@ -3572,6 +3580,86 @@
                     if (error) throw new Error(error.message);
                     showToast('완전히 삭제했어요');
                     await loadTrash();
+                } catch (e) {
+                    showAppAlert('삭제 실패: ' + (e.message || ''), '🚨 오류', '⚠️');
+                }
+            }, '완전 삭제', '삭제하기', 'bg-[#DC2626]', '🗑️');
+        }
+
+        // ===================== [NEW] 추가옵션 보관함 (연장/백업/변경 등 신청건이 '확정'되면 자동 보관) =====================
+        let addonArchiveItems = [];
+        function openAddonArchive() {
+            document.getElementById('addon-archive-overlay').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            loadAddonArchive();
+        }
+        function closeAddonArchive() {
+            document.getElementById('addon-archive-overlay').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        async function loadAddonArchive() {
+            const list = document.getElementById('addon-archive-list');
+            list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-10">불러오는 중...</div>`;
+            try {
+                const { data, error } = await sb.from('reservations').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false });
+                if (error) throw error;
+                addonArchiveItems = (data || []).map(mapRecord).filter(isAddonArchived);
+                renderAddonArchiveList();
+            } catch (e) {
+                list.innerHTML = `<div class="text-center text-rose-500 text-sm font-bold py-10 px-4 leading-relaxed">보관함을 불러오지 못했어요.<br><span class="text-slate-400 font-medium">${e.message || ''}</span></div>`;
+            }
+        }
+        function renderAddonArchiveList() {
+            const list = document.getElementById('addon-archive-list');
+            const label = document.getElementById('addon-archive-count-label');
+            if (label) label.innerText = addonArchiveItems.length > 0 ? `${addonArchiveItems.length}건 보관 중` : '보관함이 비어 있어요';
+            if (addonArchiveItems.length === 0) {
+                list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-16">📥 보관함이 비어 있어요</div>`;
+                return;
+            }
+            list.innerHTML = `<div class="grid grid-cols-2 gap-3">` + addonArchiveItems.map(it => {
+                const dt = new Date(it.deleted_at);
+                const dtStr = isNaN(dt.getTime()) ? '' : `${dt.getFullYear()}.${dt.getMonth()+1}.${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+                const cat = String(it.category || '신청');
+                return `
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-[11px] font-bold text-slate-400">✅ ${dtStr} 확정·보관됨</span>
+                            <span class="text-[11px] font-bold text-slate-300">#${it.row ?? '-'}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-[10px] font-black px-2 py-0.5 rounded-full border bg-indigo-50 text-indigo-600 border-indigo-200 shrink-0">${cat}</span>
+                            <span class="text-[15px] font-black text-slate-900 truncate">${it.name || '이름 없음'}</span>
+                            <span class="text-[12px] font-bold text-slate-400">${it.phone || '-'}</span>
+                        </div>
+                        <div class="text-[12.5px] font-bold text-slate-600 mb-3">📝 ${it.scheduleName || it.model || '-'}</div>
+                        <div class="flex gap-2">
+                            <button onclick="restoreAddonArchiveItem(${it.row})" class="flex-1 text-[12.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 py-2 rounded-lg hover:bg-emerald-100">↩️ 복원</button>
+                            <button onclick="permanentlyDeleteAddonArchiveItem(${it.row})" class="flex-1 text-[12.5px] font-bold bg-white text-rose-500 border border-rose-200 py-2 rounded-lg hover:bg-rose-50">완전 삭제</button>
+                        </div>
+                    </div>`;
+            }).join('') + `</div>`;
+        }
+        async function restoreAddonArchiveItem(id) {
+            showAppConfirm('이 신청건을 목록으로 복원할까요?', async () => {
+                try {
+                    const { error } = await sb.from('reservations').update({ deleted_at: null }).eq('id', id);
+                    if (error) throw new Error(error.message);
+                    showToast('복원했어요');
+                    await loadAddonArchive();
+                    await fetchData();
+                } catch (e) {
+                    showAppAlert('복원 실패: ' + (e.message || ''), '🚨 오류', '⚠️');
+                }
+            }, '신청건 복원', '복원하기', 'bg-emerald-600', '↩️');
+        }
+        async function permanentlyDeleteAddonArchiveItem(id) {
+            showAppConfirm('보관함에서 완전히 삭제할까요?\n(이 작업은 되돌릴 수 없습니다)', async () => {
+                try {
+                    const { error } = await sb.from('reservations').delete().eq('id', id);
+                    if (error) throw new Error(error.message);
+                    showToast('완전히 삭제했어요');
+                    await loadAddonArchive();
                 } catch (e) {
                     showAppAlert('삭제 실패: ' + (e.message || ''), '🚨 오류', '⚠️');
                 }
@@ -4262,6 +4350,28 @@
                 </div>
             </div>
             <div id="trash-list" class="flex-1 overflow-y-auto p-6"></div>
+        </div>
+    </div>
+
+    <!-- [NEW] 추가옵션 보관함: 연장/백업/변경 등 신청건이 '확정'되면 자동으로 이동해오는 곳 -->
+    <div id="addon-archive-overlay" class="hidden fixed inset-0 z-[120] bg-slate-50">
+        <div class="h-full flex flex-col max-w-[900px] mx-auto w-full">
+            <div class="bg-white border-b border-slate-200 shadow-sm shrink-0">
+                <div class="flex items-center gap-3 px-6 py-4">
+                    <button onclick="closeAddonArchive()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 shrink-0" aria-label="닫기">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-lg font-black text-slate-900 leading-tight">📥 추가옵션 보관함</div>
+                        <div id="addon-archive-count-label" class="text-xs font-bold text-slate-400 leading-tight">확정 처리된 연장·백업·변경 신청건이 보관돼요</div>
+                    </div>
+                    <button onclick="loadAddonArchive()" class="h-10 px-4 flex items-center gap-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-sm shrink-0">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                        새로고침
+                    </button>
+                </div>
+            </div>
+            <div id="addon-archive-list" class="flex-1 overflow-y-auto p-6"></div>
         </div>
     </div>
 
