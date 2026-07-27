@@ -47,6 +47,10 @@
 
         .checkbox-custom { accent-color: #2563EB; width: 1.1rem; height: 1.1rem; cursor: pointer; border-radius: 4px; }
 
+        /* [NEW] 블랙리스트 매치 카드/뱃지 강조 (purge된 Tailwind 클래스에 의존하지 않도록 전용 클래스로 정의) */
+        .blacklist-card { border: 3px solid #ef4444 !important; background-color: #fef2f2 !important; box-shadow: 0 0 12px rgba(239,68,68,0.35) !important; z-index: 10; }
+        .blacklist-badge { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 800; color: #fff; background-color: #dc2626; padding: 2px 6px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,.1); flex-shrink: 0; }
+
         .status-badge { display: inline-flex; align-items: center; justify-content: center; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; line-height: 1; border: 1px solid transparent; white-space: nowrap; }
         .status-wait { background-color: #FFF7ED; color: #C2410C; border-color: #FED7AA; }
         .status-confirm { background-color: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
@@ -198,6 +202,9 @@
             <button onclick="openTrash()" class="h-11 px-4 flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-[18px] text-[13px] font-bold text-slate-600 shadow-sm transition-all whitespace-nowrap shrink-0">
                 🗑️ 휴지통
             </button>
+            <button onclick="openBlacklist()" class="h-11 px-4 flex items-center gap-2 bg-white hover:bg-rose-50 border border-rose-200 rounded-[18px] text-[13px] font-bold text-rose-600 shadow-sm transition-all whitespace-nowrap shrink-0">
+                🚨 블랙리스트
+            </button>
             <button onclick="doLogout()" class="h-11 px-4 flex items-center gap-2 bg-white hover:bg-rose-50 border border-rose-100 rounded-[18px] text-[13px] font-bold text-rose-500 shadow-sm transition-all whitespace-nowrap shrink-0">
                 로그아웃
             </button>
@@ -239,6 +246,23 @@
                 </div>
                 <div id="new-reservation-empty-msg" class="text-center py-4 bg-white/50 rounded-xl border border-emerald-100/50 hidden mt-0">
                     <span class="text-[11px] font-bold text-emerald-600">신청·대기중인 예약이 없어요! 🎉</span>
+                </div>
+            </div>
+
+            <!-- 블랙리스트 매치 필터 -->
+            <div class="bg-red-50 p-4 rounded-2xl shadow-sm border border-red-200">
+                <div class="flex justify-between items-start mb-3">
+                    <div class="flex flex-col gap-1.5">
+                        <h3 class="text-[15px] font-black text-red-800 flex items-center gap-1.5">
+                            <span class="text-base">🚨</span> 블랙리스트 매치
+                        </h3>
+                    </div>
+                </div>
+                <div id="block-svc-blacklist" style="display:none;">
+                    <button onclick="setServiceFilter('blacklist')" class="w-full bg-white hover:bg-red-100 border border-red-100 p-2.5 rounded-xl flex justify-between items-center transition-colors svc-header" data-svc="blacklist">
+                        <span class="font-bold text-[13px] text-slate-700 svc-title">🚨 사기 의심 예약</span>
+                        <span class="text-xs font-bold text-slate-500 svc-count" id="count-svc-blacklist">0건</span>
+                    </button>
                 </div>
             </div>
 
@@ -945,6 +969,7 @@
                 else btn.classList.remove('active');
             });
             updateSortUI();
+            loadBlacklist(); // [NEW] 블랙리스트를 미리 불러와야 예약 목록에 "사기" 뱃지가 처음부터 표시됨
             fetchData();
         }
 
@@ -1642,7 +1667,7 @@
                     '택배': { 'all': 0, battery: 0, dates: {} },
                     '공연장': { 'all': 0, battery: 0, dates: {} }
                 },
-                service: { backup: 0, extension: 0, change: 0, cancel: 0, newReservation: 0 } 
+                service: { backup: 0, extension: 0, change: 0, cancel: 0, newReservation: 0, blacklist: 0 } 
             };
 
             ['퀵', '사무실', '택배', '공연장'].forEach(del => {
@@ -1682,6 +1707,8 @@
                 const isRequestRow = ['연장신청', '백업신청', '변경신청', '취소신청'].includes(String(item.category));
                 // [NEW] 신규 예약: 신청건이 아닌 원예약 중 상태가 '예약신청' 또는 '대기'인 것
                 const isNewReservation = !isRequestRow && (status === '예약신청' || status === '대기');
+                // [NEW] 블랙리스트 매치: 원예약/신청건 상관없이 이름 또는 연락처가 블랙리스트에 있으면 매치
+                const isBlMatch = isBlacklisted(item.name, item.phone);
 
                 const matchQuery = query === '' || Object.values(item).some(val => String(val).toLowerCase().includes(query));
                 
@@ -1695,11 +1722,15 @@
                         if (isCancel) counts.service.cancel++;
                     }
                     if (isNewReservation) counts.service.newReservation++;
+                    if (isBlMatch) counts.service.blacklist++;
                 }
 
                 if (currentServiceFilter !== null) {
                     if (currentServiceFilter === 'newReservation') {
                         return isNewReservation && matchQuery;
+                    }
+                    if (currentServiceFilter === 'blacklist') {
+                        return isBlMatch && matchQuery;
                     }
                     // [NEW] 추가옵션 내역(연장/백업/변경/취소 신청건)만 표시, 원예약 제외
                     if (!isRequestRow) return false;
@@ -1953,6 +1984,14 @@
                 if (elCount) elCount.innerText = `${count}건`;
                 const emptyMsg = document.getElementById('new-reservation-empty-msg');
                 if (emptyMsg) emptyMsg.style.display = count === 0 ? 'block' : 'none';
+            }
+
+            {
+                const count = counts.service.blacklist;
+                const block = document.getElementById('block-svc-blacklist');
+                if (block) block.style.display = count > 0 ? 'block' : 'none';
+                const elCount = document.getElementById('count-svc-blacklist');
+                if (elCount) elCount.innerText = `${count}건`;
             }
 
             let totalUpcoming = 0;
@@ -2867,6 +2906,8 @@
                     }
                 }
 
+                const isBlMatch = isBlacklisted(item.name, item.phone);
+
                 const time = formatTime(item.orderTime);
                 const price = (parseInt(String(item.totalPrice||0).replace(/[^0-9]/g, '')) || 0).toLocaleString() + '원';
                 const formatMD = (d) => { if(!d) return '-'; const p = String(d).split('-'); return p.length >= 3 ? `${parseInt(p[1])}/${parseInt(p[2])}` : String(d); };
@@ -2897,7 +2938,9 @@
                 }
 
                 let extraCardClasses = '';
-                if (isBackup) {
+                if (isBlMatch) {
+                    extraCardClasses = 'blacklist-card';
+                } else if (isBackup) {
                     extraCardClasses = '!border-[3px] !border-yellow-400 !bg-yellow-50/70 shadow-[0_0_12px_rgba(250,204,21,0.2)] z-10'; 
                 } else if (isAssigned) {
                     extraCardClasses = '!border-2 !border-emerald-400 !bg-emerald-50/10'; 
@@ -2949,6 +2992,7 @@
                     <div class="w-40 shrink-0 flex flex-col justify-center min-w-0 pr-2">
                         <div class="flex items-center gap-1.5">
                             <span class="text-[15px] font-black text-slate-900 truncate">${item.name}</span>
+                            ${isBlMatch ? `<span class="blacklist-badge" title="블랙리스트에 등록된 이름/연락처입니다">🚨 사기</span>` : ''}
                             ${duplicateBadgeHtml}
                             ${hasMemo ? `<span class="text-[10px] bg-slate-100 text-slate-500 border border-slate-200 px-1.5 py-0.5 rounded font-bold shadow-sm cursor-help shrink-0" title="${item.memo}">📝 메모</span>` : ''}
                         </div>
@@ -3593,6 +3637,94 @@
             document.getElementById('trash-overlay').classList.add('hidden');
             document.body.style.overflow = '';
         }
+
+        // ===================== 블랙리스트 =====================
+        let blacklist = [];
+        function normalizePhone(p) {
+            return String(p || '').replace(/[^0-9]/g, '');
+        }
+        function isBlacklisted(name, phone) {
+            const np = normalizePhone(phone);
+            const nn = String(name || '').replace(/\s+/g, '');
+            return blacklist.some(b => (np && normalizePhone(b.phone) === np) || (nn && String(b.name || '').replace(/\s+/g, '') === nn));
+        }
+        function openBlacklist() {
+            document.getElementById('blacklist-overlay').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            loadBlacklist();
+        }
+        function closeBlacklist() {
+            document.getElementById('blacklist-overlay').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        async function loadBlacklist() {
+            const list = document.getElementById('blacklist-list');
+            if (list) list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-10">불러오는 중...</div>`;
+            try {
+                const { data, error } = await sb.from('blacklist').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+                blacklist = data || [];
+                renderBlacklistList();
+                if (typeof filterData === 'function') filterData(true);
+            } catch (e) {
+                if (list) list.innerHTML = `<div class="text-center text-rose-500 text-sm font-bold py-10 px-4 leading-relaxed">블랙리스트를 불러오지 못했어요.<br>(reservations와 별개로 blacklist 테이블이 있는지 확인해주세요)<br><span class="text-slate-400 font-medium">${e.message || ''}</span></div>`;
+            }
+        }
+        function renderBlacklistList() {
+            const list = document.getElementById('blacklist-list');
+            const label = document.getElementById('blacklist-count-label');
+            if (label) label.innerText = blacklist.length > 0 ? `${blacklist.length}명 등록됨 — 예약 목록에 자동으로 "사기" 뱃지가 표시돼요` : '등록된 이름·연락처로 예약이 오면 목록에 "사기" 뱃지가 표시돼요';
+            if (!list) return;
+            if (blacklist.length === 0) {
+                list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-16">🚨 등록된 블랙리스트가 없어요</div>`;
+                return;
+            }
+            list.innerHTML = blacklist.map(b => {
+                const dt = new Date(b.created_at);
+                const dtStr = isNaN(dt.getTime()) ? '' : `${dt.getFullYear()}.${dt.getMonth() + 1}.${dt.getDate()}`;
+                return `
+                    <div class="bg-white rounded-2xl border border-rose-200 shadow-sm p-4 mb-2 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[15px] font-black text-slate-900">${b.name || '이름없음'}</span>
+                                <span class="text-[13px] font-bold text-slate-500">${b.phone || '-'}</span>
+                            </div>
+                            ${b.memo ? `<div class="text-[12px] text-slate-400 font-bold mt-0.5">${b.memo}</div>` : ''}
+                            <div class="text-[11px] text-slate-300 font-bold mt-0.5">${dtStr} 등록</div>
+                        </div>
+                        <button onclick="deleteBlacklistEntry(${b.id})" class="shrink-0 text-[12.5px] font-bold bg-white text-rose-500 border border-rose-200 px-3 py-2 rounded-lg hover:bg-rose-50">삭제</button>
+                    </div>`;
+            }).join('');
+        }
+        async function addBlacklistEntry() {
+            const name = document.getElementById('blacklist-add-name').value.trim();
+            const phone = document.getElementById('blacklist-add-phone').value.trim();
+            const memo = document.getElementById('blacklist-add-memo').value.trim();
+            if (!name && !phone) { showToast('이름 또는 연락처를 입력해주세요'); return; }
+            try {
+                const { error } = await sb.from('blacklist').insert({ name, phone, memo });
+                if (error) throw new Error(error.message);
+                document.getElementById('blacklist-add-name').value = '';
+                document.getElementById('blacklist-add-phone').value = '';
+                document.getElementById('blacklist-add-memo').value = '';
+                showToast('블랙리스트에 추가했어요');
+                await loadBlacklist();
+            } catch (e) {
+                showAppAlert('추가 실패: ' + (e.message || ''), '🚨 오류', '⚠️');
+            }
+        }
+        function deleteBlacklistEntry(id) {
+            showAppConfirm('블랙리스트에서 삭제할까요?', async () => {
+                try {
+                    const { error } = await sb.from('blacklist').delete().eq('id', id);
+                    if (error) throw new Error(error.message);
+                    showToast('삭제했어요');
+                    await loadBlacklist();
+                } catch (e) {
+                    showAppAlert('삭제 실패: ' + (e.message || ''), '🚨 오류', '⚠️');
+                }
+            }, '삭제', '삭제하기', 'bg-[#DC2626]', '🗑️');
+        }
         async function loadTrash() {
             const list = document.getElementById('trash-list');
             list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-10">불러오는 중...</div>`;
@@ -4203,6 +4335,11 @@
             if (!name || !phone) {
                 showAppAlert('이름과 연락처는 필수입니다.', '입력 필요', '⚠️'); return;
             }
+            if (isBlacklisted(name, phone)) {
+                if (!confirm('🚨 이 이름 또는 연락처는 블랙리스트에 등록되어 있습니다.\n그래도 예약을 생성하시겠습니까?')) {
+                    return;
+                }
+            }
 
             var finalModel = (modelType === '기타' ? deviceId : modelType + deviceId) + (isBattery ? '+보조배터리' : '');
             var rawPrice = (document.getElementById('add-price').value || '').replace(/[^0-9]/g,'');
@@ -4428,6 +4565,34 @@
                 </div>
             </div>
             <div id="trash-list" class="flex-1 overflow-y-auto p-6"></div>
+        </div>
+    </div>
+
+    <!-- ===================== 블랙리스트 오버레이 ===================== -->
+    <div id="blacklist-overlay" class="hidden fixed inset-0 z-[120] bg-slate-50">
+        <div class="h-full flex flex-col max-w-[900px] mx-auto w-full">
+            <div class="bg-white border-b border-slate-200 shadow-sm shrink-0">
+                <div class="flex items-center gap-3 px-6 py-4">
+                    <button onclick="closeBlacklist()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 shrink-0" aria-label="닫기">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-lg font-black text-slate-900 leading-tight">🚨 블랙리스트</div>
+                        <div id="blacklist-count-label" class="text-xs font-bold text-slate-400 leading-tight">등록된 이름·연락처로 예약이 오면 목록에 "사기" 뱃지가 표시돼요</div>
+                    </div>
+                    <button onclick="loadBlacklist()" class="h-10 px-4 flex items-center gap-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-sm shrink-0">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                        새로고침
+                    </button>
+                </div>
+                <div class="flex items-center gap-2 px-6 pb-4">
+                    <input id="blacklist-add-name" type="text" placeholder="이름" class="h-10 px-3 rounded-xl border border-slate-200 text-sm font-bold" style="width:130px">
+                    <input id="blacklist-add-phone" type="text" placeholder="연락처 (010-0000-0000)" class="h-10 px-3 rounded-xl border border-slate-200 text-sm font-bold" style="width:180px" oninput="this.value=autoHyphen(this.value)">
+                    <input id="blacklist-add-memo" type="text" placeholder="메모 (선택)" class="h-10 px-3 rounded-xl border border-slate-200 text-sm font-bold flex-1">
+                    <button onclick="addBlacklistEntry()" class="h-10 px-4 flex items-center gap-1.5 rounded-xl bg-rose-500 hover:bg-rose-700 text-white font-bold text-[13px] shrink-0">추가</button>
+                </div>
+            </div>
+            <div id="blacklist-list" class="flex-1 overflow-y-auto p-6"></div>
         </div>
     </div>
 
