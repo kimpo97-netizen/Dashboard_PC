@@ -26,6 +26,8 @@
         .bg-emerald-500{--tw-bg-opacity:1;background-color:rgb(16 185 129/var(--tw-bg-opacity,1))}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 우체국 배송등록 엑셀 파일 생성용 (SheetJS) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- 키 설정 파일 (serincam-config.js): URL·key는 여기에 한 번만 입력 -->
     <script src="serincam-config.js"></script>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" />
@@ -215,9 +217,8 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
                 최신 정보 불러오기
             </button>
-            <button onclick="toggleSortMode()" class="h-11 px-4 flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100/80 rounded-[18px] text-[13px] font-bold text-indigo-600 shadow-sm transition-all whitespace-nowrap shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
-                정렬: <span id="sort-mode-text" class="text-indigo-800 font-black">최신순</span>
+            <button onclick="openActionLog()" class="h-11 px-4 flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100/80 rounded-[18px] text-[13px] font-bold text-indigo-600 shadow-sm transition-all whitespace-nowrap shrink-0">
+                📜 실행 기록
             </button>
             <button onclick="openTrash()" class="h-11 px-4 flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-[18px] text-[13px] font-bold text-slate-600 shadow-sm transition-all whitespace-nowrap shrink-0">
                 🗑️ 휴지통
@@ -239,6 +240,12 @@
                     </button>
                     <button onclick="closeMoreMenu(); openBlacklist();" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left text-[13px] font-bold text-rose-600">
                         <span class="text-base">🚨</span> 블랙리스트
+                    </button>
+                    <button onclick="closeMoreMenu(); openLockerManager();" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left text-[13px] font-bold text-slate-700">
+                        <span class="text-base">🗄️</span> 물품보관함
+                    </button>
+                    <button onclick="toggleSortMode(); closeMoreMenu();" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left text-[13px] font-bold text-slate-700">
+                        <span class="text-base">↕️</span> 정렬: <span id="sort-mode-text" class="text-indigo-600 font-black">최신순</span>
                     </button>
                 </div>
             </div>
@@ -705,10 +712,21 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
             </div>
-            <p class="text-[13px] text-slate-500 font-medium mb-4 leading-relaxed break-keep">
+            <p id="bulk-tracking-desc" class="text-[13px] text-slate-500 font-medium mb-4 leading-relaxed break-keep">
                 체크박스로 선택한 <span id="bulk-tracking-count" class="font-bold text-blue-600">0</span>명의 리스트 <strong class="text-slate-700">위에서 아래 순서대로</strong> 송장번호가 매칭됩니다.<br>엑셀에서 세로로 여러 개를 복사(Ctrl+C)한 후, 아래 입력칸에 붙여넣기(Ctrl+V) 해주세요.
             </p>
-            <textarea id="bulk-tracking-input" rows="8" class="w-full p-4 border border-slate-300 rounded-xl font-tnum text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 resize-none whitespace-pre leading-relaxed font-bold bg-slate-50 text-slate-800" placeholder="예시:&#10;123456789012&#10;987654321098&#10;... (엑셀에서 복사 후 바로 붙여넣기)"></textarea>
+            <label class="w-full flex items-center justify-center gap-2 border-2 border-dashed border-teal-200 bg-teal-50 hover:bg-teal-100 rounded-xl py-3 mb-3 cursor-pointer text-[13px] font-bold text-teal-800 transition-colors">
+                <span id="bulk-tracking-file-label-text">📎 등기조회 엑셀 파일로 자동매칭 (이름·연락처 확인 후 배치)</span>
+                <input type="file" id="bulk-tracking-file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleBulkTrackingFile(event)">
+            </label>
+            <div id="bulk-tracking-manual-section">
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="flex-1 h-px bg-slate-200"></div>
+                    <span class="text-[11px] font-bold text-slate-400">또는 직접 붙여넣기</span>
+                    <div class="flex-1 h-px bg-slate-200"></div>
+                </div>
+                <textarea id="bulk-tracking-input" rows="8" class="w-full p-4 border border-slate-300 rounded-xl font-tnum text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 resize-none whitespace-pre leading-relaxed font-bold bg-slate-50 text-slate-800" placeholder="예시:&#10;123456789012&#10;987654321098&#10;... (엑셀에서 복사 후 바로 붙여넣기)"></textarea>
+            </div>
             <div class="flex gap-3 mt-6">
                 <button onclick="closeBulkTrackingModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl transition-colors">취소</button>
                 <button onclick="submitBulkTracking()" id="bulk-tracking-save-btn" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-sm">다음 (검토하기)</button>
@@ -877,6 +895,16 @@
         const ADMIN_EMAIL = "kimpo97@naver.com"; // 로그인용 고정 아이디 (비밀번호만 입력)
         const API_URL = "supabase"; // (호환용 더미값)
 
+        // 고객이 입력한 값(이름/메모/주소 등)을 innerHTML에 넣기 전 이스케이프 (저장형 XSS 방지)
+        function escapeHtml(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // "2026. 4. 17" / "2026-4-17" → "2026-04-17" (붙임표 형식). 그 외(예: "(+1일)")는 그대로.
         function toDash(s) {
             if (!s) return '';
@@ -990,6 +1018,513 @@
             const { error } = await sb.from('reservations').delete().in('id', ids);
             if (error) throw new Error(error.message);
         }
+        // ===================== [NEW] 실행 기록(감사 로그) · 실행취소 =====================
+        // 관리자가 수행한 주요 작업(상태변경/삭제/수정/등록/설정변경 등)을 admin_action_logs 테이블에 남기고,
+        // "실행취소" 시 저장해둔 이전 상태(before_data)로 되돌립니다.
+        let actionLogs = [];
+
+        // allData/trashItems의 항목은 mapRecord()가 화면용으로 덧붙인 별칭 필드(row/zipCode/returnWay/sheetName)를 갖고 있어
+        // 그대로 DB에 써넣으면 안 되므로, 원본 DB 컬럼만 남기고 정리합니다.
+        function toRawReservation(mappedItem) {
+            if (!mappedItem) return null;
+            const { row, zipCode, returnWay, sheetName, ...rest } = mappedItem;
+            return rest;
+        }
+
+        function namesSummary(items, nameKey = 'name') {
+            if (!items || items.length === 0) return '';
+            const first = items[0][nameKey] || items[0].row || items[0].id || '이름없음';
+            return items.length > 1 ? `${first} 외 ${items.length - 1}건` : `${first}`;
+        }
+
+        // 작업 성공 후 호출: 실패해도(로그 저장 실패) 실제 작업 자체에는 영향을 주지 않습니다.
+        const ACTION_LOG_KEEP_COUNT = 10; // 실행 기록은 최근 10건만 보관합니다.
+        async function logAdminAction({ type, table, description, rowIds = [], before = [], after = null, detail = null }) {
+            try {
+                const { error } = await sb.from('admin_action_logs').insert({
+                    admin_email: ADMIN_EMAIL,
+                    action_type: type,
+                    table_name: table,
+                    description,
+                    row_ids: rowIds,
+                    before_data: before,
+                    after_data: after,
+                    detail
+                });
+                if (error) throw error;
+                await pruneActionLogs();
+            } catch (e) {
+                console.error('실행 기록 저장 실패 (작업 자체는 정상 처리됨):', e);
+            }
+        }
+
+        // 가장 최근 ACTION_LOG_KEEP_COUNT건만 남기고 그보다 오래된 기록은 지웁니다.
+        async function pruneActionLogs() {
+            try {
+                const { data, error } = await sb.from('admin_action_logs')
+                    .select('id').order('created_at', { ascending: false })
+                    .range(ACTION_LOG_KEEP_COUNT, 9999);
+                if (error) throw error;
+                const idsToDelete = (data || []).map(r => r.id);
+                if (idsToDelete.length > 0) {
+                    await sb.from('admin_action_logs').delete().in('id', idsToDelete);
+                }
+            } catch (e) {
+                console.error('오래된 실행 기록 정리 실패:', e);
+            }
+        }
+
+        // 예약 수정처럼 "무엇이 바뀌었는지"가 중요한 작업에서, 이전 값과 이후 값을 비교해 간단한 한글 요약을 만듭니다.
+        const RESERVATION_FIELD_LABELS = {
+            name: '이름', phone: '연락처', zipCode: '우편번호', address: '주소',
+            startDate: '대여일', endDate: '반납일', delivery: '수령방법', returnWay: '반납방법',
+            status: '상태', trackingNumber: '송장번호', model: '모델', memo: '메모',
+            totalPrice: '금액', review: '리뷰이벤트', scheduleName: '공연/스케줄', account: '환불계좌'
+        };
+        function diffSummary(before, after, labels = RESERVATION_FIELD_LABELS) {
+            if (!before || !after) return '';
+            const changes = [];
+            for (const key in labels) {
+                const b = before[key]; const a = after[key];
+                const bs = (b === undefined || b === null) ? '' : String(b);
+                const as = (a === undefined || a === null) ? '' : String(a);
+                if (bs === as) continue;
+                if (!as) changes.push(`${labels[key]} 삭제`);
+                else if (!bs) changes.push(`${labels[key]}: ${as}`);
+                else changes.push(`${labels[key]}: ${bs} → ${as}`);
+            }
+            return changes.join(', ');
+        }
+
+        function openActionLog() {
+            document.getElementById('actionlog-overlay').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            loadActionLogs();
+        }
+        function closeActionLog() {
+            document.getElementById('actionlog-overlay').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        async function loadActionLogs() {
+            const list = document.getElementById('actionlog-list');
+            if (list) list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-10">불러오는 중...</div>`;
+            try {
+                const { data, error } = await sb.from('admin_action_logs').select('*').order('created_at', { ascending: false }).limit(ACTION_LOG_KEEP_COUNT);
+                if (error) throw error;
+                actionLogs = data || [];
+                renderActionLogList();
+            } catch (e) {
+                if (list) list.innerHTML = `<div class="text-center text-rose-500 text-sm font-bold py-10 px-4 leading-relaxed">실행 기록을 불러오지 못했어요.<br>(admin_action_logs 테이블이 있는지 확인해주세요)<br><span class="text-slate-400 font-medium">${e.message || ''}</span></div>`;
+            }
+        }
+        function renderActionLogList() {
+            const list = document.getElementById('actionlog-list');
+            const label = document.getElementById('actionlog-count-label');
+            if (label) label.innerText = actionLogs.length > 0 ? `최근 ${actionLogs.length}건의 작업 기록` : '아직 기록된 작업이 없어요';
+            if (!list) return;
+            if (actionLogs.length === 0) {
+                list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-16">📜 실행 기록이 없어요</div>`;
+                return;
+            }
+            list.innerHTML = actionLogs.map(log => {
+                const dt = new Date(log.created_at);
+                const dtStr = isNaN(dt.getTime()) ? '' : `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+                const canUndo = !log.undone && (log.action_type === 'insert' ? (log.after_data && log.after_data.length) : (log.before_data && log.before_data.length));
+                const undoBtn = log.undone
+                    ? `<span class="text-[11px] font-black text-slate-400 bg-slate-100 px-3 py-2 rounded-lg shrink-0">↩️ 실행취소됨</span>`
+                    : (canUndo
+                        ? `<button onclick="event.stopPropagation(); undoAdminLog(${log.id})" class="shrink-0 text-[12.5px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-3 py-2 rounded-lg hover:bg-amber-100">↩️ 실행취소</button>`
+                        : `<span class="text-[11px] font-bold text-slate-300 px-3 py-2 shrink-0">실행취소 불가</span>`);
+                const lineTwo = log.detail ? `${dtStr} · ${escapeHtml(log.detail)}` : dtStr;
+                const itemCount = (log.row_ids || []).length;
+                const isMultiple = itemCount > 1;
+                const titleHtml = isMultiple
+                    ? `${escapeHtml(log.description || '')} <span class="text-indigo-500">▸ 목록보기</span>`
+                    : escapeHtml(log.description || '');
+                return `
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-2 flex items-center justify-between gap-3 ${isMultiple ? 'cursor-pointer hover:bg-indigo-50' : ''}" ${isMultiple ? `onclick="showActionLogDetail(${log.id})"` : ''}>
+                        <div class="min-w-0">
+                            <div class="text-[14px] font-black text-slate-900 truncate">${titleHtml}</div>
+                            <div class="text-[11px] text-slate-400 font-bold mt-0.5 truncate">${lineTwo}</div>
+                        </div>
+                        ${undoBtn}
+                    </div>`;
+            }).join('');
+        }
+
+        // 여러 건을 한 번에 처리한 실행 기록을 클릭하면, 그 안에 포함된 개별 항목 목록을 보여줍니다.
+        function showActionLogDetail(logId) {
+            const log = actionLogs.find(l => Number(l.id) === Number(logId));
+            if (!log) return;
+            const rows = (log.action_type === 'insert' ? log.after_data : log.before_data) || [];
+            if (rows.length === 0) { showToast('상세 내역이 없어요'); return; }
+            const itemsHtml = rows.map((row, i) => {
+                const borderCls = i === rows.length - 1 ? '' : 'border-b border-slate-100';
+                if (log.table_name === 'admin_settings') {
+                    const key = escapeHtml(row.key || '');
+                    const valStr = typeof row.value === 'object' ? JSON.stringify(row.value) : String(row.value ?? '');
+                    return `<div class="flex items-center justify-between gap-3 px-3 py-2.5 ${borderCls}">
+                        <span class="text-[13px] font-bold text-slate-800 shrink-0">${key}</span>
+                        <span class="text-[12px] font-bold text-slate-400 truncate">${escapeHtml(valStr)}</span>
+                    </div>`;
+                }
+                const name = escapeHtml(row.name || (row.id != null ? `#${row.id}` : '이름없음'));
+                const phone = escapeHtml(row.phone || '-');
+                const extra = escapeHtml(row.model || row.memo || '');
+                return `<div class="flex items-center justify-between gap-3 px-3 py-2.5 ${borderCls}">
+                    <span class="text-[13px] font-bold text-slate-800 truncate">${name}</span>
+                    <span class="text-[12px] font-bold text-slate-400 truncate shrink-0">${phone}${extra ? ' · ' + extra : ''}</span>
+                </div>`;
+            }).join('');
+            setupModal(
+                log.description, `총 ${rows.length}건`, '📋',
+                `<div class="max-h-[320px] overflow-y-auto rounded-xl border border-slate-200 mb-3 bg-white">${itemsHtml}</div>
+                 <button onclick="closeAppModal()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 rounded-xl text-base transition-colors">닫기</button>`
+            );
+        }
+
+        async function undoAdminLog(logId) {
+            const log = actionLogs.find(l => Number(l.id) === Number(logId));
+            if (!log) { showToast('기록을 찾을 수 없어요'); return; }
+            if (log.undone) { showToast('이미 실행취소된 작업이에요'); return; }
+            showAppConfirm(
+                `이 작업을 실행취소할까요?\n"${log.description}"\n\n※ 이후에 다른 변경이 있었다면 그 내용을 덮어쓸 수 있어요.`,
+                async () => {
+                    try {
+                        if (log.table_name === 'admin_settings') {
+                            await undoSettingsLog(log);
+                        } else {
+                            await undoRowsLog(log);
+                        }
+                        const { error } = await sb.from('admin_action_logs').update({ undone: true, undone_at: new Date().toISOString() }).eq('id', log.id);
+                        if (error) throw error;
+                        log.undone = true;
+                        renderActionLogList();
+                        await fetchData();
+                        if (log.table_name === 'blacklist') await loadBlacklist();
+                        showToast('실행취소했어요');
+                    } catch (e) {
+                        showAppAlert('실행취소 실패: ' + (e.message || ''), '🚨 오류', '⚠️');
+                    }
+                },
+                '실행취소', '실행취소하기', 'bg-amber-500', '↩️'
+            );
+        }
+
+        // reservations/blacklist 공통 실행취소.
+        // - insert 되돌리기: 새로 생긴 행을 id로 삭제
+        // - delete 되돌리기: 행이 이미 사라진 상태라 다시 넣어야 하는데, id 컬럼이 GENERATED ALWAYS라 예전 id값을 그대로 넣으면
+        //   "cannot insert a non-DEFAULT value into column id" 오류가 남 → id를 빼고 새로 INSERT(새 id로 복원)
+        // - update 되돌리기: 행이 그대로 있으므로 이전 값으로 UPDATE (id는 WHERE 조건으로만 사용, upsert 사용 안 함)
+        async function undoRowsLog(log) {
+            const table = log.table_name;
+            if (log.action_type === 'insert') {
+                const ids = (log.after_data || []).map(r => r.id).filter(id => id !== undefined && id !== null);
+                if (ids.length === 0) return;
+                const { error } = await sb.from(table).delete().in('id', ids);
+                if (error) throw error;
+                return;
+            }
+            const before = log.before_data || [];
+            if (before.length === 0) return;
+            if (log.action_type === 'delete') {
+                const rowsToInsert = before.map(({ id, ...rest }) => rest);
+                const { error } = await sb.from(table).insert(rowsToInsert);
+                if (error) throw error;
+                return;
+            }
+            const results = await Promise.all(before.map(row => {
+                const { id, ...patch } = row;
+                if (id === undefined || id === null) return Promise.resolve({ error: null });
+                return sb.from(table).update(patch).eq('id', id);
+            }));
+            const failed = results.find(r => r.error);
+            if (failed) throw new Error(failed.error.message);
+        }
+
+        // admin_settings는 key를 기본키로 쓰는 key-value 테이블이라 별도 처리
+        async function undoSettingsLog(log) {
+            const before = log.before_data || []; // [{ key, value }]
+            const toUpsert = before.filter(b => b.value !== null && b.value !== undefined)
+                .map(b => ({ key: b.key, value: b.value, updated_at: new Date().toISOString() }));
+            const toDelete = before.filter(b => b.value === null || b.value === undefined).map(b => b.key);
+            if (toUpsert.length) {
+                const { error } = await sb.from('admin_settings').upsert(toUpsert, { onConflict: 'key' });
+                if (error) throw error;
+            }
+            if (toDelete.length) {
+                const { error } = await sb.from('admin_settings').delete().in('key', toDelete);
+                if (error) throw error;
+            }
+            settingsLoaded = false;
+            await loadAdminSettings();
+        }
+
+        // ===================== [NEW] 물품보관함 (사무실 수령 고객용) =====================
+        let lockers = [];
+        let lockerAssignTargetRow = null; // 배치 대상 예약의 row id. null이면 일반 관리 모드.
+
+        function openLockerManager() {
+            lockerAssignTargetRow = null;
+            document.getElementById('locker-overlay').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            loadLockers();
+        }
+        function openLockerPicker(rowId) {
+            lockerAssignTargetRow = String(rowId);
+            document.getElementById('locker-overlay').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            loadLockers();
+        }
+        function closeLockerOverlay() {
+            document.getElementById('locker-overlay').classList.add('hidden');
+            document.body.style.overflow = '';
+            lockerAssignTargetRow = null;
+        }
+        function clearLockerAssignTarget() {
+            lockerAssignTargetRow = null;
+            renderLockerGrid();
+        }
+
+        async function loadLockers() {
+            const grid = document.getElementById('locker-grid');
+            if (grid) grid.innerHTML = `<div class="col-span-full text-center text-slate-400 text-sm font-bold py-10">불러오는 중...</div>`;
+            try {
+                const { data, error } = await sb.from('storage_lockers').select('*').order('locker_number', { ascending: true });
+                if (error) throw error;
+                lockers = data || [];
+                renderLockerGrid();
+            } catch (e) {
+                if (grid) grid.innerHTML = `<div class="col-span-full text-center text-rose-500 text-sm font-bold py-10 px-4 leading-relaxed">보관함 정보를 불러오지 못했어요.<br>(storage_lockers 테이블이 있는지 확인해주세요)<br><span class="text-slate-400 font-medium">${e.message || ''}</span></div>`;
+            }
+        }
+
+        function renderLockerGrid() {
+            const grid = document.getElementById('locker-grid');
+            const banner = document.getElementById('locker-target-banner');
+            const bannerText = document.getElementById('locker-target-text');
+            if (!grid) return;
+
+            if (lockerAssignTargetRow) {
+                const targetItem = allData.find(it => String(it.row) === String(lockerAssignTargetRow));
+                banner.classList.remove('hidden');
+                bannerText.innerText = targetItem ? `${targetItem.name}님(${targetItem.phone || '-'})을 배치할 보관함을 선택하세요` : '배치할 예약 정보를 찾을 수 없어요';
+            } else {
+                banner.classList.add('hidden');
+            }
+
+            grid.innerHTML = lockers.map(l => {
+                const n = l.locker_number;
+                const isTarget = !!lockerAssignTargetRow && l.reservation_id != null && Number(l.reservation_id) === Number(lockerAssignTargetRow);
+                const occupant = l.reservation_id != null ? allData.find(it => Number(it.row) === Number(l.reservation_id)) : null;
+
+                let stateCls = 'border-slate-200 bg-white';
+                let statusBadge = '<span class="text-[10px] font-bold text-slate-300">비어있음</span>';
+                if (isTarget) {
+                    stateCls = 'border-emerald-300 bg-emerald-50';
+                    statusBadge = '<span class="text-[10px] font-black text-emerald-600">✓ 배치됨</span>';
+                } else if (l.reservation_id != null) {
+                    stateCls = 'border-amber-200 bg-amber-50';
+                    statusBadge = `<span class="text-[10px] font-bold text-amber-600 truncate">${escapeHtml(occupant ? occupant.name : '사용중')}</span>`;
+                }
+
+                let actionHtml = '';
+                if (lockerAssignTargetRow && !isTarget) {
+                    actionHtml = `<button onclick="assignLockerToReservation(${n})" class="w-full text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg">배치</button>`;
+                } else if (l.reservation_id != null) {
+                    actionHtml = `<button onclick="unassignLocker(${n})" class="w-full text-[11px] font-bold bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 py-1.5 rounded-lg">비우기</button>`;
+                }
+
+                return `
+                    <div class="border ${stateCls} rounded-xl p-2.5 flex flex-col gap-1.5">
+                        <div class="flex items-center justify-between gap-1">
+                            <span class="font-black text-[13px] text-slate-800">${n}번</span>
+                            ${statusBadge}
+                        </div>
+                        <input type="text" value="${escapeHtml(l.device_model || '')}" placeholder="기기 입력"
+                            onclick="event.stopPropagation()"
+                            onchange="updateLockerDevice(${n}, this.value)"
+                            class="w-full text-[11px] px-1.5 py-1 border border-slate-200 rounded-lg font-bold text-center text-slate-700 outline-none focus:border-indigo-300" />
+                        <input type="text" value="${escapeHtml(l.password || '')}" placeholder="비밀번호 4자리"
+                            inputmode="numeric" maxlength="4"
+                            onclick="event.stopPropagation()"
+                            oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4)"
+                            onchange="updateLockerPassword(${n}, this.value)"
+                            class="w-full text-[11px] px-1.5 py-1 border border-slate-200 rounded-lg font-bold text-center text-slate-700 font-tnum outline-none focus:border-indigo-300" />
+                        ${actionHtml}
+                    </div>`;
+            }).join('');
+        }
+
+        async function updateLockerDevice(lockerNumber, value) {
+            const device = value.trim();
+            const idx = lockers.findIndex(l => l.locker_number === lockerNumber);
+            if (idx === -1) return;
+            const prev = lockers[idx].device_model;
+            lockers[idx].device_model = device || null;
+            try {
+                const { error } = await sb.from('storage_lockers').update({ device_model: device || null, updated_at: new Date().toISOString() }).eq('locker_number', lockerNumber);
+                if (error) throw error;
+                showToast(`${lockerNumber}번 보관함 기기 정보를 저장했어요`);
+            } catch (e) {
+                lockers[idx].device_model = prev;
+                showAppAlert('저장 실패: ' + (e.message || ''), '🚨 오류', '⚠️');
+                renderLockerGrid();
+            }
+        }
+
+        async function updateLockerPassword(lockerNumber, value) {
+            const pw = String(value || '').replace(/[^0-9]/g, '').slice(0, 4);
+            if (pw && pw.length !== 4) {
+                showToast('비밀번호는 숫자 4자리로 입력해주세요');
+                renderLockerGrid();
+                return;
+            }
+            const idx = lockers.findIndex(l => l.locker_number === lockerNumber);
+            if (idx === -1) return;
+            const prev = lockers[idx].password;
+            lockers[idx].password = pw || null;
+            try {
+                const { error } = await sb.from('storage_lockers').update({ password: pw || null, updated_at: new Date().toISOString() }).eq('locker_number', lockerNumber);
+                if (error) throw error;
+                showToast(`${lockerNumber}번 보관함 비밀번호를 저장했어요`);
+            } catch (e) {
+                lockers[idx].password = prev;
+                showAppAlert('저장 실패: ' + (e.message || ''), '🚨 오류', '⚠️');
+                renderLockerGrid();
+            }
+        }
+
+        // 보관함을 눌러 선택한 예약에 배치: (1) 기기번호가 있으면 모델에 반영(보조배터리 표기 유지) (2) 예약/보관함 갱신
+        // (3) 실행 기록 남김 (4) 고객에게 알림톡 발송(베스트에포트 — 실패해도 배치 자체는 이미 완료된 상태로 둠)
+        async function assignLockerToReservation(lockerNumber) {
+            if (!lockerAssignTargetRow) return;
+            const targetIndex = allData.findIndex(it => String(it.row) === String(lockerAssignTargetRow));
+            if (targetIndex === -1) { showToast('예약 정보를 찾을 수 없어요'); return; }
+            const targetItem = allData[targetIndex];
+            const locker = lockers.find(l => l.locker_number === lockerNumber);
+            if (!locker) return;
+
+            const doAssign = async () => {
+                const originalData = { ...targetItem };
+
+                let newModel = targetItem.model;
+                if (locker.device_model) {
+                    const hasBattery = String(targetItem.model || '').includes('보조배터리');
+                    newModel = locker.device_model + (hasBattery ? '+보조배터리' : '');
+                }
+
+                allData[targetIndex].model = newModel;
+                allData[targetIndex].locker_number = lockerNumber;
+                filterData(true);
+
+                try {
+                    const nowIso = new Date().toISOString();
+                    const { error: e1 } = await sb.from('reservations').update({ model: newModel, locker_number: lockerNumber }).eq('id', Number(lockerAssignTargetRow));
+                    if (e1) throw e1;
+
+                    // 이 예약이 다른 보관함을 이미 쓰고 있었다면 비워줌 (한 예약당 보관함 1개만 유지)
+                    const prevLocker = lockers.find(l => l.reservation_id != null && Number(l.reservation_id) === Number(lockerAssignTargetRow) && l.locker_number !== lockerNumber);
+                    if (prevLocker) {
+                        await sb.from('storage_lockers').update({ reservation_id: null, assigned_at: null, updated_at: nowIso }).eq('locker_number', prevLocker.locker_number);
+                        prevLocker.reservation_id = null;
+                        prevLocker.assigned_at = null;
+                    }
+
+                    const { error: e2 } = await sb.from('storage_lockers').update({ reservation_id: Number(lockerAssignTargetRow), assigned_at: nowIso, updated_at: nowIso }).eq('locker_number', lockerNumber);
+                    if (e2) throw e2;
+                    locker.reservation_id = Number(lockerAssignTargetRow);
+                    locker.assigned_at = nowIso;
+
+                    logAdminAction({
+                        type: 'update', table: 'reservations',
+                        description: `물품보관함 배치 (${originalData.name || lockerAssignTargetRow}) → ${lockerNumber}번`,
+                        rowIds: [Number(lockerAssignTargetRow)],
+                        before: [toRawReservation(originalData)],
+                        detail: diffSummary(originalData, allData[targetIndex])
+                    });
+
+                    lockerAssignTargetRow = null;
+                    renderLockerGrid();
+                    showToast(`${lockerNumber}번 보관함에 배치했어요`);
+
+                    sendLockerAlimtalk(targetItem.phone, targetItem.name, lockerNumber, locker.password);
+                } catch (e) {
+                    Object.assign(allData[targetIndex], originalData);
+                    filterData(true);
+                    showAppAlert('배치 실패: ' + (e.message || ''), '🚨 오류', '⚠️');
+                }
+            };
+
+            const proceedWithReassignCheck = () => {
+                if (locker.reservation_id != null && Number(locker.reservation_id) !== Number(lockerAssignTargetRow)) {
+                    const occupant = allData.find(it => Number(it.row) === Number(locker.reservation_id));
+                    showAppConfirm(
+                        `이미 ${occupant ? occupant.name : '다른 예약'}에 배치된 보관함이에요.\n그래도 ${targetItem.name}님에게 재배치할까요?`,
+                        doAssign, '보관함 재배치', '재배치', 'bg-amber-500', '⚠️'
+                    );
+                } else {
+                    doAssign();
+                }
+            };
+
+            if (!locker.password) {
+                showAppConfirm(
+                    `${lockerNumber}번 보관함에 비밀번호가 설정되어 있지 않아요.\n알림톡에 빈 비밀번호로 발송될 수 있어요. 그래도 배치할까요?`,
+                    proceedWithReassignCheck, '비밀번호 미설정', '그래도 배치', 'bg-amber-500', '⚠️'
+                );
+            } else {
+                proceedWithReassignCheck();
+            }
+        }
+
+        function unassignLocker(lockerNumber) {
+            const locker = lockers.find(l => l.locker_number === lockerNumber);
+            if (!locker || locker.reservation_id == null) return;
+            showAppConfirm(`${lockerNumber}번 보관함 배치를 해제할까요?\n(예약의 기기/모델 정보는 그대로 둡니다)`, async () => {
+                try {
+                    const occupantRow = locker.reservation_id;
+                    const { error } = await sb.from('storage_lockers').update({ reservation_id: null, assigned_at: null, updated_at: new Date().toISOString() }).eq('locker_number', lockerNumber);
+                    if (error) throw error;
+                    locker.reservation_id = null;
+                    locker.assigned_at = null;
+
+                    const idx = allData.findIndex(it => Number(it.row) === Number(occupantRow));
+                    if (idx !== -1) {
+                        allData[idx].locker_number = null;
+                        await sb.from('reservations').update({ locker_number: null }).eq('id', Number(occupantRow));
+                        filterData(true);
+                    }
+                    renderLockerGrid();
+                    showToast('보관함을 비웠어요');
+                } catch (e) {
+                    showAppAlert('처리 실패: ' + (e.message || ''), '🚨 오류', '⚠️');
+                }
+            }, '보관함 비우기', '비우기', 'bg-slate-800', '🗄️');
+        }
+
+        async function sendLockerAlimtalk(phone, name, lockerNumber, password) {
+            if (!phone) return;
+            try {
+                const { data, error } = await sb.functions.invoke('send-alimtalk', {
+                    body: {
+                        templateKey: 'locker_pickup',
+                        phone,
+                        variables: { '물품보관함': String(lockerNumber), '비밀번호': password || '' }
+                    }
+                });
+                if (error) throw error;
+                if (data && data.error) throw new Error(data.error);
+                showToast(`${name || ''}님에게 물품보관함 알림톡을 보냈어요`);
+            } catch (e) {
+                console.error('물품보관함 알림톡 발송 실패', e);
+                showAppAlert(
+                    `보관함 배치는 완료됐지만, 알림톡 발송에는 실패했어요.\n(${e.message || e})\n\n물품보관함용 알림톡 템플릿이 아직 설정되지 않았다면 고객에게 직접 안내해주세요.${password ? `\n(보관함 비밀번호: ${password})` : ''}`,
+                    '⚠️ 알림톡 발송 실패', '⚠️'
+                );
+            }
+        }
+
         const MODEL_LIST = ['23U', '24U', '25U', '26U', '17P', '17PM'];
         const STATUS_PRIORITY = { '예약신청': 1, '대기': 2, '확정': 3, '반납완료': 4, '취소': 5 };
 
@@ -2529,6 +3064,12 @@
 
             try {
                 await sbBatchUpdate(updates);
+                logAdminAction({
+                    type: 'update', table: 'reservations',
+                    description: `예약 상태 일괄변경 → '${newStatus}' (${namesSummary(originalDataBackup.map(b => b.data))})`,
+                    rowIds: originalDataBackup.map(b => b.data.row),
+                    before: originalDataBackup.map(b => toRawReservation(b.data))
+                });
                 // [NEW] 저장 성공 후에만 연장/주소변경 신청 내용을 원예약(origin_ref 매칭)에 반영
                 for (const task of originSyncTasks) {
                     try {
@@ -2607,6 +3148,12 @@
                         const { error } = await sb.from('reservations').update({ status: '취소', deleted_at: nowIso }).in('id', normalIds);
                         if (error) throw new Error(error.message);
                     }
+                    logAdminAction({
+                        type: 'update', table: 'reservations',
+                        description: `예약 일괄 휴지통 이동 (${namesSummary(items)})`,
+                        rowIds: items.map(it => it.row),
+                        before: items.map(toRawReservation)
+                    });
                     showAppAlert(`${items.length}건을 휴지통으로 이동했습니다.`, "일괄 처리 완료", "🗑️");
                 } catch (err) {
                     console.error("일괄 삭제 실패", err);
@@ -2632,23 +3179,28 @@
             let copyText = "";
             const nowIso = new Date().toISOString();
             const updates = [];
+            const excelRows = []; // 우체국 배송 양식(상품명/수취인명/우편번호/주소/전화번호) 그대로
+            const missingList = []; // 우편번호 또는 주소가 비어있는 항목
 
             sortedSelectedRows.forEach(rowId => {
                 const item = allData.find(i => String(i.row) === String(rowId));
                 if (item) {
                     const clean = (str) => (str || '').toString().replace(/\r?\n|\r/g, ' ').replace(/\s+/g, ' ').trim();
-                    
+
                     const model = clean(item.model);
                     const name = clean(item.name);
                     const zipCode = clean(item.zipCode);
                     const address = clean(item.address);
-                    
+
                     let phone = clean(item.phone);
                     let phoneNum = phone.replace(/[^0-9]/g, '');
                     if (phoneNum.length === 11) phone = `${phoneNum.slice(0,3)}-${phoneNum.slice(3,7)}-${phoneNum.slice(7)}`;
                     else if (phoneNum.length === 10) phone = `${phoneNum.slice(0,3)}-${phoneNum.slice(3,6)}-${phoneNum.slice(6)}`;
-                    
+
                     copyText += `${model}\t${name}\t${zipCode}\t${address}\t${phone}\n`;
+                    excelRows.push([model, name, zipCode, address, phone]);
+
+                    if (!zipCode || !address) missingList.push(name || `#${rowId}`);
 
                     item.postRegisteredAt = nowIso;
                     updates.push({ id: Number(item.row), postRegisteredAt: nowIso });
@@ -2662,6 +3214,20 @@
             document.execCommand('copy');
             document.body.removeChild(t);
 
+            // [NEW] 우체국 배송 양식(우체국 배송 양식.xlsx)과 동일한 헤더/열 순서로 새 엑셀 파일을 만들어 다운로드
+            try {
+                const sheetData = [['상품명', '수취인명', '수취인 우편번호', '수취인 주소', '수취인 전화번호'], ...excelRows];
+                const ws = XLSX.utils.aoa_to_sheet(sheetData);
+                ws['!cols'] = [{ wch: 18.75 }, { wch: 18.75 }, { wch: 12.5 }, { wch: 31.25 }, { wch: 18.75 }];
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'sheet1');
+                const d = new Date();
+                const stamp = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+                XLSX.writeFile(wb, `우체국배송등록_${stamp}.xlsx`);
+            } catch (e) {
+                console.error("우체국 배송 엑셀 파일 생성 실패", e);
+            }
+
             try {
                 await Promise.all(updates.map(u => sb.from('reservations').update({ postRegisteredAt: u.postRegisteredAt }).eq('id', u.id)));
             } catch (e) {
@@ -2669,7 +3235,14 @@
             }
 
             filterData(true);
-            showAppAlert(`${selectedRows.length}건의 정보가 엑셀용으로 복사되고, '오늘 등록' 목록에 반영되었습니다.`, "우체국 배송등록", "📦");
+            if (missingList.length > 0) {
+                showAppAlert(
+                    `${selectedRows.length}건이 복사·다운로드되었습니다.\n\n⚠️ 아래 ${missingList.length}건은 우편번호 또는 주소가 없어 확인이 필요해요:\n${missingList.join(', ')}`,
+                    "⚠️ 확인이 필요해요", "⚠️"
+                );
+            } else {
+                showAppAlert(`${selectedRows.length}건의 정보가 엑셀용으로 복사되고, 우체국 배송등록 파일로 다운로드되었습니다.`, "우체국 배송등록", "📦");
+            }
         }
 
         let todayPostList = [];
@@ -2695,8 +3268,8 @@
                     return `<div class="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm cursor-pointer hover:border-orange-200 transition-colors" onclick="toggleTodayPostRow(event, '${item.row}')">
                         <input type="checkbox" class="checkbox-custom shrink-0 today-post-row-checkbox" data-row="${item.row}" onclick="toggleTodayPostRow(event, '${item.row}')">
                         <div class="flex flex-col min-w-0 flex-1">
-                            <span class="text-[13px] font-black text-slate-800 truncate">${item.name} <span class="text-slate-400 font-bold text-[11px]">(${item.phone||'-'})</span></span>
-                            <span class="text-[11px] text-blue-600 font-bold mt-0.5">${(item.model||'').replace(/\+?\s*보조배터리/g,'').trim()} · 송장 ${item.trackingNumber||'미입력'}</span>
+                            <span class="text-[13px] font-black text-slate-800 truncate">${escapeHtml(item.name)} <span class="text-slate-400 font-bold text-[11px]">(${escapeHtml(item.phone||'-')})</span></span>
+                            <span class="text-[11px] text-blue-600 font-bold mt-0.5">${escapeHtml((item.model||'').replace(/\+?\s*보조배터리/g,'').trim())} · 송장 ${escapeHtml(item.trackingNumber||'미입력')}</span>
                         </div>
                         <span class="text-[11px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-1 rounded-lg shrink-0">${t}</span>
                     </div>`;
@@ -2747,19 +3320,296 @@
         }
 
         function openBulkTrackingModal() {
-            if (selectedRows.length === 0) return;
-            document.getElementById('bulk-tracking-count').innerText = selectedRows.length;
+            const manualSection = document.getElementById('bulk-tracking-manual-section');
+            const saveBtn = document.getElementById('bulk-tracking-save-btn');
+            const desc = document.getElementById('bulk-tracking-desc');
+            const fileLabelText = document.getElementById('bulk-tracking-file-label-text');
+
             document.getElementById('bulk-tracking-input').value = '';
-            document.getElementById('bulk-tracking-save-btn').innerText = '다음 (검토하기)';
-            document.getElementById('bulk-tracking-save-btn').disabled = false;
-            
+
+            if (selectedRows.length === 0) {
+                // 선택된 리스트가 없으면 직접 붙여넣기(순서 매칭)는 불가능하므로, 파일 자동매칭만 보여줍니다.
+                manualSection.classList.add('hidden');
+                saveBtn.classList.add('hidden');
+                desc.innerHTML = '선택된 예약이 없어요. 엑셀 파일을 올리면 <strong class="text-slate-700">전체 예약</strong>에서 이름·연락처·기기번호(모델)까지 확인해서 알맞은 예약을 찾아 송장번호를 배정해요.';
+                fileLabelText.innerText = '📎 등기조회 엑셀 파일로 전체 예약에서 자동매칭';
+            } else {
+                manualSection.classList.remove('hidden');
+                saveBtn.classList.remove('hidden');
+                saveBtn.innerText = '다음 (검토하기)';
+                saveBtn.disabled = false;
+                desc.innerHTML = '체크박스로 선택한 <span class="font-bold text-blue-600">' + selectedRows.length + '</span>명의 리스트 <strong class="text-slate-700">위에서 아래 순서대로</strong> 송장번호가 매칭됩니다.<br>엑셀에서 세로로 여러 개를 복사(Ctrl+C)한 후, 아래 입력칸에 붙여넣기(Ctrl+V) 해주세요.';
+                fileLabelText.innerText = '📎 등기조회 엑셀 파일로 자동매칭 (이름·연락처 확인 후 배치)';
+            }
+
             const modal = document.getElementById('bulk-tracking-modal');
             modal.classList.remove('hidden');
-            setTimeout(() => document.getElementById('bulk-tracking-input').focus(), 100);
+            if (selectedRows.length > 0) {
+                setTimeout(() => document.getElementById('bulk-tracking-input').focus(), 100);
+            }
         }
 
         function closeBulkTrackingModal() {
             document.getElementById('bulk-tracking-modal').classList.add('hidden');
+        }
+
+        // [NEW] 우체국 등기조회 엑셀 파일을 업로드하면, 이름·연락처를 기준 리스트(선택한 예약)와 대조해서
+        // 송장번호를 자동으로 배치합니다. 파일 자체는 서버/브라우저에 저장하지 않고 그 자리에서 읽고 버려요.
+        function handleBulkTrackingFile(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            // 선택된 예약이 없어도 전체 예약을 대상으로 자동매칭하므로, 여기서는 선택 여부를 막지 않습니다.
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, { type: 'array' });
+                    const sheet = wb.Sheets[wb.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+                    processBulkTrackingExcelRows(rows);
+                } catch (err) {
+                    showAppAlert('엑셀 파일을 읽는 중 오류가 발생했어요: ' + (err.message || ''), '🚨 오류', '⚠️');
+                } finally {
+                    event.target.value = ''; // 같은 파일을 다시 선택할 수 있도록 초기화 (파일 자체는 보관하지 않음)
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processBulkTrackingExcelRows(rows) {
+            const headerRowIdx = rows.findIndex(r => Array.isArray(r) && r.some(c => String(c || '').trim() === '등기번호'));
+            if (headerRowIdx === -1) {
+                showAppAlert('엑셀에서 "등기번호" 열을 찾지 못했어요. 우체국 등기조회 엑셀 파일이 맞는지 확인해주세요.', '🚨 파일 형식 오류', '⚠️');
+                return;
+            }
+            const header = rows[headerRowIdx].map(c => String(c || '').trim());
+            const col = {
+                tracking: header.indexOf('등기번호'),
+                name: header.indexOf('수취인명'),
+                phone: header.indexOf('전화번호'),
+                mobile: header.indexOf('휴대전화번호'),
+                product: header.indexOf('상품명')
+            };
+            if (col.tracking === -1 || col.name === -1) {
+                showAppAlert('엑셀에서 "등기번호" 또는 "수취인명" 열을 찾지 못했어요.', '🚨 파일 형식 오류', '⚠️');
+                return;
+            }
+
+            const cleanName = s => String(s || '').replace(/\s+/g, '').trim();
+            const digitsOnly = s => String(s || '').replace(/[^0-9]/g, '');
+
+            const excelRows = rows.slice(headerRowIdx + 1)
+                .filter(r => Array.isArray(r) && String(r[col.tracking] || '').trim())
+                .map(r => ({
+                    tracking: String(r[col.tracking]).trim(),
+                    name: cleanName(r[col.name]),
+                    phone: digitsOnly(col.phone !== -1 ? r[col.phone] : ''),
+                    mobile: digitsOnly(col.mobile !== -1 ? r[col.mobile] : ''),
+                    product: col.product !== -1 ? String(r[col.product] || '').trim() : ''
+                }));
+
+            if (selectedRows.length === 0) {
+                matchExcelAgainstAllReservations(excelRows);
+                return;
+            }
+
+            const sortedSelectedRows = [...selectedRows].sort((a, b) => {
+                const idxA = currentlyFilteredList.findIndex(item => String(item.row) === String(a));
+                const idxB = currentlyFilteredList.findIndex(item => String(item.row) === String(b));
+                return idxA - idxB;
+            });
+
+            const trackingNumbers = [];
+            const alreadyPlaced = [];
+            const notFound = [];
+
+            sortedSelectedRows.forEach(rowId => {
+                const item = allData.find(it => String(it.row) === String(rowId));
+                if (!item) { trackingNumbers.push(''); return; }
+
+                if (item.trackingNumber) {
+                    // 이미 배치했거나 이미 알맞게 배치되어 있는 경우 → 건드리지 않고 확인 목록에 추가
+                    alreadyPlaced.push(item.name || `#${rowId}`);
+                    trackingNumbers.push(item.trackingNumber);
+                    return;
+                }
+
+                const itemName = cleanName(item.name);
+                const itemPhone = digitsOnly(item.phone);
+                const match = excelRows.find(er => er.name === itemName && itemPhone && (er.phone === itemPhone || er.mobile === itemPhone));
+
+                if (match) {
+                    trackingNumbers.push(match.tracking);
+                } else {
+                    notFound.push(item.name || `#${rowId}`);
+                    trackingNumbers.push('');
+                }
+            });
+
+            tempTrackingNumbers = trackingNumbers;
+            openBulkTrackingReviewModal(trackingNumbers);
+
+            if (alreadyPlaced.length > 0 || notFound.length > 0) {
+                let msg = '';
+                if (alreadyPlaced.length > 0) msg += `이미 송장번호가 입력되어 있어 그대로 둔 항목 (${alreadyPlaced.length}건):\n${alreadyPlaced.join(', ')}\n\n`;
+                if (notFound.length > 0) msg += `엑셀에서 이름·연락처가 일치하는 송장을 찾지 못한 항목 (${notFound.length}건):\n${notFound.join(', ')}`;
+                showAppAlert(msg.trim(), '⚠️ 확인이 필요해요', '⚠️');
+            }
+        }
+
+        // [NEW] 선택된 리스트가 없을 때: 엑셀의 이름+연락처로 후보를 찾고, 상품명(대여모델+배정된 기기번호, 예: 23U12)까지
+        // 정확히 일치하는지 확인한 뒤에만 전체 예약 중에서 해당 건을 찾아 자동으로 매칭합니다.
+        function matchExcelAgainstAllReservations(excelRows) {
+            const cleanName = s => String(s || '').replace(/\s+/g, '').trim();
+            const digitsOnly = s => String(s || '').replace(/[^0-9]/g, '');
+            const normModel = s => String(s || '').replace(/\+?\s*보조배터리/gi, '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+
+            const matchedRowIds = [];
+            const proposedTracking = {};
+            const alreadyPlaced = [];
+            const modelMismatch = [];
+            const notFound = [];
+
+            excelRows.forEach(er => {
+                const nameCandidates = allData.filter(item => {
+                    const phoneDigits = digitsOnly(item.phone);
+                    return cleanName(item.name) === er.name && phoneDigits && (phoneDigits === er.phone || phoneDigits === er.mobile);
+                });
+
+                if (nameCandidates.length === 0) {
+                    notFound.push(`${er.name || '이름없음'}(${er.tracking})`);
+                    return;
+                }
+
+                let target = null;
+                if (!er.product) {
+                    // 상품명 열이 없으면 이름+연락처만으로 판단 (후보가 정확히 1건일 때만 인정)
+                    target = nameCandidates.length === 1 ? nameCandidates[0] : null;
+                } else {
+                    target = nameCandidates.find(item => normModel(item.model) === normModel(er.product)) || null;
+                }
+
+                if (!target) {
+                    // 이름·연락처는 일치하지만 모델(기기번호)이 달라 자동으로 넣지 않고 확인 팝업에서 직접 입력하도록 안내
+                    modelMismatch.push({ er, candidates: nameCandidates });
+                    return;
+                }
+
+                if (target.trackingNumber) {
+                    alreadyPlaced.push(target.name || `#${target.row}`);
+                    return;
+                }
+
+                matchedRowIds.push(String(target.row));
+                proposedTracking[target.row] = er.tracking;
+            });
+
+            if (matchedRowIds.length === 0) {
+                showBulkTrackingIssuesPopup(0, alreadyPlaced, modelMismatch, notFound);
+                return;
+            }
+
+            selectedRows = matchedRowIds;
+            renderList(currentlyFilteredList);
+            updateBulkActionBar();
+            closeBulkTrackingModal();
+
+            const sortedSelectedRows = [...selectedRows].sort((a, b) => {
+                const idxA = currentlyFilteredList.findIndex(item => String(item.row) === String(a));
+                const idxB = currentlyFilteredList.findIndex(item => String(item.row) === String(b));
+                return idxA - idxB;
+            });
+            const trackingNumbers = sortedSelectedRows.map(rowId => proposedTracking[rowId] || '');
+
+            tempTrackingNumbers = trackingNumbers;
+            openBulkTrackingReviewModal(trackingNumbers);
+
+            if (alreadyPlaced.length > 0 || modelMismatch.length > 0 || notFound.length > 0) {
+                showBulkTrackingIssuesPopup(matchedRowIds.length, alreadyPlaced, modelMismatch, notFound);
+            }
+        }
+
+        // [NEW] 엑셀 자동매칭 결과 확인 팝업. 모델(기기번호)이 달라 자동으로 못 넣은 항목은
+        // 후보 예약별로 "입력하기" 버튼을 눌러 그 자리에서 바로 모델+송장번호를 채워넣을 수 있습니다.
+        let pendingMismatchItems = [];
+
+        function buildMismatchRowsHtml(modelMismatch) {
+            return modelMismatch.map((m, i) => {
+                const candidatesHtml = m.candidates.map((c, ci) => `
+                    <button onclick="applyMismatchedTrackingByIndex(${i}, ${ci}, this)" class="text-[12px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1.5 rounded-lg whitespace-nowrap">
+                        입력하기 (${escapeHtml(c.model || '모델없음')} → ${escapeHtml(m.er.product || '-')})
+                    </button>
+                `).join('');
+                return `
+                    <div data-mismatch-row class="flex items-center justify-between gap-2 p-2.5 bg-white border border-amber-200 rounded-xl">
+                        <div class="min-w-0">
+                            <div class="text-[13px] font-bold text-slate-800 truncate">${escapeHtml(m.er.name)} <span class="text-slate-400 font-medium">(송장 ${escapeHtml(m.er.tracking)})</span></div>
+                            <div class="text-[11px] text-slate-400 font-bold mt-0.5 truncate">엑셀 상품명: ${escapeHtml(m.er.product || '-')}</div>
+                        </div>
+                        <div class="flex gap-1.5 shrink-0 flex-wrap justify-end">${candidatesHtml}</div>
+                    </div>`;
+            }).join('');
+        }
+
+        function showBulkTrackingIssuesPopup(matchedCount, alreadyPlaced, modelMismatch, notFound) {
+            pendingMismatchItems = modelMismatch;
+
+            let summary = matchedCount > 0 ? `전체 예약에서 ${matchedCount}건을 찾아 매칭했어요.` : '전체 예약에서 새로 매칭할 항목을 찾지 못했어요.';
+            if (alreadyPlaced.length) summary += `\n\n이미 송장번호가 입력되어 있어 건너뛴 항목 (${alreadyPlaced.length}건):\n${alreadyPlaced.join(', ')}`;
+            if (notFound.length) summary += `\n\n일치하는 예약을 찾지 못한 항목 (${notFound.length}건):\n${notFound.join(', ')}`;
+
+            const mismatchHtml = modelMismatch.length > 0 ? `
+                <div class="text-[12.5px] font-bold text-amber-600 mt-3 mb-1.5 text-left">이름·연락처는 같지만 모델(기기번호)이 달라 확인이 필요해요 (${modelMismatch.length}건)</div>
+                <div class="max-h-[240px] overflow-y-auto flex flex-col gap-2 mb-3">${buildMismatchRowsHtml(modelMismatch)}</div>
+            ` : '';
+
+            setupModal(
+                '⚠️ 확인이 필요해요', summary.trim(), '⚠️',
+                `${mismatchHtml}<button onclick="closeAppModal()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 rounded-xl text-base transition-colors">닫기</button>`
+            );
+        }
+
+        function applyMismatchedTrackingByIndex(mismatchIdx, candidateIdx, btnEl) {
+            const m = pendingMismatchItems[mismatchIdx];
+            if (!m) return;
+            const c = m.candidates[candidateIdx];
+            if (!c) return;
+            applyMismatchedTracking(c.row, m.er.product, m.er.tracking, btnEl);
+        }
+
+        // 확인 팝업에서 "입력하기"를 누르면, 엑셀의 상품명(모델+기기번호)과 등기번호를 그 예약에 바로 반영합니다.
+        async function applyMismatchedTracking(rowId, model, tracking, btnEl) {
+            const targetIndex = allData.findIndex(item => String(item.row) === String(rowId));
+            if (targetIndex === -1) { showToast('예약을 찾을 수 없어요'); return; }
+
+            const originalData = { ...allData[targetIndex] };
+            if (btnEl) { btnEl.disabled = true; btnEl.innerText = '처리 중...'; }
+
+            allData[targetIndex].model = model;
+            allData[targetIndex].trackingNumber = tracking;
+            if (typeof filterData === 'function') filterData(true);
+
+            try {
+                const { error } = await sb.from('reservations').update({ model, trackingNumber: tracking }).eq('id', Number(rowId));
+                if (error) throw error;
+                logAdminAction({
+                    type: 'update', table: 'reservations',
+                    description: `송장 매칭 확인 입력 (${originalData.name || rowId})`,
+                    rowIds: [Number(rowId)],
+                    before: [toRawReservation(originalData)],
+                    detail: diffSummary(originalData, allData[targetIndex])
+                });
+                showToast('입력했어요');
+                if (btnEl) {
+                    const row = btnEl.closest('[data-mismatch-row]');
+                    if (row) row.remove();
+                }
+            } catch (e) {
+                Object.assign(allData[targetIndex], originalData);
+                filterData(true);
+                if (btnEl) { btnEl.disabled = false; btnEl.innerText = '입력하기'; }
+                showAppAlert('저장 실패: ' + (e.message || ''), '🚨 오류', '⚠️');
+            }
         }
 
         function submitBulkTracking() {
@@ -2813,8 +3663,8 @@
                     const displayModel = String(item.model || '').replace(/\s*\+?\s*보조배터리/g, '').trim();
                     customerInfo = `
                         <div class="flex flex-col min-w-0 pr-2">
-                            <span class="text-[13px] font-black text-slate-800 truncate">${item.name} <span class="text-slate-400 font-bold text-[11px]">(${item.phone || '-'})</span></span>
-                            <span class="text-[11px] text-blue-600 font-bold mt-0.5 truncate">${displayModel || '기종미정'}</span>
+                            <span class="text-[13px] font-black text-slate-800 truncate">${escapeHtml(item.name)} <span class="text-slate-400 font-bold text-[11px]">(${escapeHtml(item.phone || '-')})</span></span>
+                            <span class="text-[11px] text-blue-600 font-bold mt-0.5 truncate">${escapeHtml(displayModel || '기종미정')}</span>
                         </div>
                     `;
                 }
@@ -2879,6 +3729,12 @@
 
             try {
                 await sbBatchUpdate(updates);
+                logAdminAction({
+                    type: 'update', table: 'reservations',
+                    description: `송장번호 일괄배정 (${namesSummary(originalDataBackup.map(b => b.data))})`,
+                    rowIds: originalDataBackup.map(b => b.data.row),
+                    before: originalDataBackup.map(b => toRawReservation(b.data))
+                });
             } catch (err) {
                 console.error("송장 일괄 저장 실패", err);
                 originalDataBackup.forEach(backup => { Object.assign(allData[backup.index], backup.data); });
@@ -2949,8 +3805,8 @@
                 card.className = "flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-sm gap-2";
                 card.innerHTML = `
                     <div class="flex-1 overflow-hidden min-w-0">
-                        <div class="text-[13px] font-black text-slate-800 truncate">${item ? item.name : '알 수 없음'} <span class="text-slate-400 font-bold text-[11px]">(${item?.phone || '-'})</span></div>
-                        <div class="text-[11px] text-blue-600 font-bold mt-0.5 truncate">${displayModel || '기종미정'}</div>
+                        <div class="text-[13px] font-black text-slate-800 truncate">${item ? escapeHtml(item.name) : '알 수 없음'} <span class="text-slate-400 font-bold text-[11px]">(${escapeHtml(item?.phone || '-')})</span></div>
+                        <div class="text-[11px] text-blue-600 font-bold mt-0.5 truncate">${escapeHtml(displayModel || '기종미정')}</div>
                     </div>
                     <div class="shrink-0 flex items-center gap-1.5">${renderDeliveryChoiceButtons(rowId, BULK_DELIVERY_METHODS, choice, 'selectBulkDeliveryChoice')}</div>
                 `;
@@ -2993,6 +3849,12 @@
 
             try {
                 await sbBatchUpdate(updates);
+                logAdminAction({
+                    type: 'update', table: 'reservations',
+                    description: `수령 방법 일괄변경 (${namesSummary(originalDataBackup.map(b => b.data))})`,
+                    rowIds: originalDataBackup.map(b => b.data.row),
+                    before: originalDataBackup.map(b => toRawReservation(b.data))
+                });
             } catch (err) {
                 console.error("수령 방법 일괄 저장 실패", err);
                 originalDataBackup.forEach(backup => { Object.assign(allData[backup.index], backup.data); });
@@ -3037,8 +3899,8 @@
                 card.className = "flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-sm gap-2";
                 card.innerHTML = `
                     <div class="flex-1 overflow-hidden min-w-0">
-                        <div class="text-[13px] font-black text-slate-800 truncate">${item.name || '-'} <span class="text-slate-400 font-bold text-[11px]">(${item.phone || '-'})</span></div>
-                        <div class="text-[11px] text-rose-600 font-bold mt-0.5 truncate">→ ${item.address || '-'}</div>
+                        <div class="text-[13px] font-black text-slate-800 truncate">${escapeHtml(item.name || '-')} <span class="text-slate-400 font-bold text-[11px]">(${escapeHtml(item.phone || '-')})</span></div>
+                        <div class="text-[11px] text-rose-600 font-bold mt-0.5 truncate">→ ${escapeHtml(item.address || '-')}</div>
                     </div>
                     <div class="shrink-0 flex items-center gap-1.5">${renderDeliveryChoiceButtons(rowId, ADDRESS_CONFIRM_DELIVERY_METHODS, choice, 'selectAddressConfirmChoice')}</div>
                 `;
@@ -3112,6 +3974,12 @@
 
             try {
                 await sbBatchUpdate(updates);
+                logAdminAction({
+                    type: 'update', table: 'reservations',
+                    description: `대여기간 일괄연장 (${namesSummary(originalDataBackup.map(b => b.data))})`,
+                    rowIds: originalDataBackup.map(b => b.data.row),
+                    before: originalDataBackup.map(b => toRawReservation(b.data))
+                });
             } catch (err) {
                 originalDataBackup.forEach(backup => { Object.assign(allData[backup.index], backup.data); });
                 filterData(true);
@@ -3157,6 +4025,12 @@
 
             try {
                 await sbBatchUpdate(updates);
+                logAdminAction({
+                    type: 'update', table: 'reservations',
+                    description: `백업 메모 일괄추가 (${namesSummary(originalDataBackup.map(b => b.data))})`,
+                    rowIds: originalDataBackup.map(b => b.data.row),
+                    before: originalDataBackup.map(b => toRawReservation(b.data))
+                });
             } catch (err) {
                 originalDataBackup.forEach(backup => { Object.assign(allData[backup.index], backup.data); });
                 filterData(true);
@@ -3305,6 +4179,12 @@
 
             try {
                 await sbBatchUpdate(updates);
+                logAdminAction({
+                    type: 'update', table: 'reservations',
+                    description: `백업 상태 일괄변경 → '${status}' (${namesSummary(originalDataBackup.map(b => b.data))})`,
+                    rowIds: originalDataBackup.map(b => b.data.row),
+                    before: originalDataBackup.map(b => toRawReservation(b.data))
+                });
             } catch (err) {
                 originalDataBackup.forEach(backup => { Object.assign(allData[backup.index], backup.data); });
                 filterData(true);
@@ -3400,7 +4280,14 @@
 
                 const isBackup = String(item.category).includes('백업') || String(item.model).includes('백업') || String(item.memo).includes('백업');
                 const isExtension = String(item.category).includes('연장') || String(item.model).includes('연장') || String(item.memo).includes('연장');
-                
+
+                const isOfficePickup = String(item.delivery || '').includes('사무실') && !String(item.status || '').includes('취소');
+                const lockerBadgeHtml = isOfficePickup ? `
+                    <button onclick="event.stopPropagation(); openLockerPicker('${item.row}')" class="text-[11px] font-bold ${item.locker_number ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-amber-50 text-amber-600 border-amber-200'} border px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap w-max">
+                        🗄️ ${item.locker_number ? `${item.locker_number}번 보관함` : '보관함 배치'}
+                    </button>
+                ` : '';
+
                 let backupBadgeHtml = '';
                 if (isBackup) {
                     const memoStr = String(item.memo || '');
@@ -3454,7 +4341,7 @@
 
                     <div class="w-36 shrink-0 flex flex-col justify-center pr-2">
                         <div onclick="event.stopPropagation()" title="클릭하여 기기 바로 배정 (엔터 누르면 다음 줄로 이동)" class="w-full">
-                            <div id="model-display-${item.row}" class="bg-white text-slate-800 px-2 py-1.5 rounded-lg font-black text-[14px] border border-slate-300 cursor-pointer hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-all truncate shadow-sm text-center w-full" onclick="enableInlineEdit(event, '${item.row}')">📱 ${displayModel || '미정'}</div>
+                            <div id="model-display-${item.row}" class="bg-white text-slate-800 px-2 py-1.5 rounded-lg font-black text-[14px] border border-slate-300 cursor-pointer hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-all truncate shadow-sm text-center w-full" onclick="enableInlineEdit(event, '${item.row}')">📱 ${escapeHtml(displayModel || '미정')}</div>
                         </div>
                         ${(hasBattery || isBackup || isExtension) ? `
                         <div class="flex items-center gap-1 mt-1.5 flex-wrap justify-center">
@@ -3467,13 +4354,13 @@
                     
                     <div class="w-40 shrink-0 flex flex-col justify-center min-w-0 pr-2">
                         <div class="flex items-center gap-1.5">
-                            <span class="text-[15px] font-black text-slate-900 truncate">${item.name}</span>
+                            <span class="text-[15px] font-black text-slate-900 truncate">${escapeHtml(item.name)}</span>
                             ${isBlMatch ? `<span class="blacklist-badge" title="블랙리스트에 등록된 이름/연락처입니다">🚨 사기</span>` : ''}
                             ${duplicateBadgeHtml}
-                            ${hasMemo ? `<span class="text-[10px] bg-slate-100 text-slate-500 border border-slate-200 px-1.5 py-0.5 rounded font-bold shadow-sm cursor-help shrink-0" title="${item.memo}">📝 메모</span>` : ''}
+                            ${hasMemo ? `<span class="text-[10px] bg-slate-100 text-slate-500 border border-slate-200 px-1.5 py-0.5 rounded font-bold shadow-sm cursor-help shrink-0" title="${escapeHtml(item.memo)}">📝 메모</span>` : ''}
                         </div>
                         <div class="flex items-center mt-1 text-slate-500 font-bold text-[13px] font-tnum whitespace-nowrap">
-                            <span>${item.phone || '-'}</span>
+                            <span>${escapeHtml(item.phone || '-')}</span>
                         </div>
                     </div>
                     
@@ -3484,17 +4371,18 @@
                             <span>${end} <span class="text-emerald-600 font-bold text-[12px]">(${item.returnWay || '-'})</span></span>
                         </div>
                         <div class="text-[12px] font-bold text-slate-600 truncate bg-slate-50 px-2 py-0.5 rounded border border-slate-100 inline-block w-max max-w-full">
-                            🎟️ ${item.scheduleName || '행사명 미상'}
+                            🎟️ ${escapeHtml(item.scheduleName || '행사명 미상')}
                         </div>
+                        ${lockerBadgeHtml}
                     </div>
                     
                     <div class="flex-1 shrink-0 flex flex-col justify-center px-2 min-w-0">
                         ${fullAddress.trim() ? `
                             <div class="flex items-center gap-1 mb-0.5">
-                                <span class="text-[10px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-tnum border border-slate-200">${item.zipCode || '우편번호 없음'}</span>
+                                <span class="text-[10px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-tnum border border-slate-200">${escapeHtml(item.zipCode || '우편번호 없음')}</span>
                             </div>
-                            <div class="text-[13px] font-bold text-slate-700 truncate w-full" title="${item.address || ''}">
-                                ${item.address || '-'}
+                            <div class="text-[13px] font-bold text-slate-700 truncate w-full" title="${escapeHtml(item.address || '')}">
+                                ${escapeHtml(item.address || '-')}
                             </div>
                         ` : `<span class="text-[12px] text-slate-300 font-bold">-</span>`}
                     </div>
@@ -3508,7 +4396,7 @@
                         <div class="text-[11px] font-bold text-slate-500 mb-1 whitespace-nowrap">송장 입력</div>
                         <div class="w-full flex items-center justify-center" onclick="event.stopPropagation()" title="클릭하여 송장번호 바로 입력 (엔터 누르면 다음 줄로 이동)">
                             <div id="tracking-display-${item.row}" class="bg-white px-1.5 py-1.5 rounded-lg border border-slate-200 shadow-sm text-slate-700 cursor-pointer hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-colors truncate w-full text-center font-tnum text-[12px]" onclick="enableTrackingInlineEdit(event, '${item.row}')">
-                                ${item.trackingNumber ? item.trackingNumber : '<span class="text-slate-300 text-[11px]">입력</span>'}
+                                ${item.trackingNumber ? escapeHtml(item.trackingNumber) : '<span class="text-slate-300 text-[11px]">입력</span>'}
                             </div>
                         </div>
                     </div>
@@ -3609,7 +4497,7 @@
             container.innerHTML = `
                 <div class="flex items-center w-full shadow-sm">
                     ${prefixHtml}
-                    <input type="text" id="inline-input-${rowId}" class="w-full px-2 py-1.5 text-[14px] font-black ${inputClass} border-blue-500 outline-none font-tnum bg-white text-slate-900 text-center min-w-[30px]" value="${assignedId}" placeholder="기기 번호">
+                    <input type="text" id="inline-input-${rowId}" class="w-full px-2 py-1.5 text-[14px] font-black ${inputClass} border-blue-500 outline-none font-tnum bg-white text-slate-900 text-center min-w-[30px]" value="${escapeHtml(assignedId)}" placeholder="기기 번호">
                 </div>
             `;
             container.className = "w-full"; 
@@ -3714,7 +4602,7 @@
             const currentTracking = String(item.trackingNumber || '');
             currentTrackingInlineEditRow = rowId;
 
-            container.innerHTML = `<input type="text" id="inline-tracking-${rowId}" class="w-full px-1 py-0.5 text-[11px] font-extrabold border-2 border-blue-500 rounded outline-none font-tnum bg-white text-slate-900 shadow-sm" placeholder="송장" value="${currentTracking}">`;
+            container.innerHTML = `<input type="text" id="inline-tracking-${rowId}" class="w-full px-1 py-0.5 text-[11px] font-extrabold border-2 border-blue-500 rounded outline-none font-tnum bg-white text-slate-900 shadow-sm" placeholder="송장" value="${escapeHtml(currentTracking)}">`;
             container.className = "w-full max-w-[85px]"; 
 
             const input = document.getElementById(`inline-tracking-${rowId}`);
@@ -3986,14 +4874,16 @@
 
             const targetIndex = allData.findIndex(item => String(item.row) === String(rowId));
             let originalData = null;
+            let editedSnapshot = null;
             if(targetIndex !== -1) {
                 originalData = { ...allData[targetIndex] };
-                Object.assign(allData[targetIndex], { 
-                    name: payload.name, phone: payload.phone, zipCode: payload.zipCode, address: payload.address, 
-                    startDate: payload.startDate, endDate: payload.endDate, delivery: payload.delivery, returnWay: payload.returnWay, 
+                Object.assign(allData[targetIndex], {
+                    name: payload.name, phone: payload.phone, zipCode: payload.zipCode, address: payload.address,
+                    startDate: payload.startDate, endDate: payload.endDate, delivery: payload.delivery, returnWay: payload.returnWay,
                     status: payload.status, trackingNumber: payload.tracking, model: payload.model, memo: payload.memo, totalPrice: payload.totalPrice,
                     review: payload.review, scheduleName: payload.scheduleName
                 });
+                editedSnapshot = { ...allData[targetIndex] };
             }
 
             // [NEW] 연장신청 건을 '확정'으로 저장할 때 반영할 원예약(origin_ref 매칭) 미리 찾아두기 — 실제 반영은 메인 저장 성공 후
@@ -4050,6 +4940,15 @@
             .then(res => res.json())
             .then(data => {
                 if(data.result !== 'success') throw new Error("서버 오류");
+                if (originalData) {
+                    logAdminAction({
+                        type: 'update', table: 'reservations',
+                        description: `예약 수정 (${originalData.name || rowId})`,
+                        rowIds: [Number(rowId)],
+                        before: [toRawReservation(originalData)],
+                        detail: diffSummary(originalData, editedSnapshot)
+                    });
+                }
                 // [NEW] 메인 저장이 성공한 뒤에만 원예약 반납일을 연장 (실패 시 반납일만 먼저 늘어나는 것 방지)
                 if (extendOrigIdx !== -1) {
                     const newEndDate = toDash(payload.endDate);
@@ -4132,6 +5031,14 @@
             try {
                 const { error } = await sb.from('reservations').update({ status: newStatus, deleted_at: new Date().toISOString() }).eq('id', Number(rowId));
                 if (error) throw new Error(error.message);
+                if (targetItem) {
+                    logAdminAction({
+                        type: 'update', table: 'reservations',
+                        description: `예약 휴지통 이동 (${targetItem.name || rowId}) → 상태 '${newStatus}'`,
+                        rowIds: [Number(rowId)],
+                        before: [toRawReservation(targetItem)]
+                    });
+                }
                 showAppAlert(`휴지통으로 이동했습니다. (상태: ${newStatus})\n필요하면 휴지통에서 복원할 수 있어요.`, "완료", "🗑️");
             } catch (err) {
                 if (targetItem) { allData.push(targetItem); filterData(true); }
@@ -4148,6 +5055,14 @@
             try {
                 const { error } = await sb.from('reservations').delete().eq('id', Number(rowId));
                 if (error) throw new Error(error.message);
+                if (targetItem) {
+                    logAdminAction({
+                        type: 'delete', table: 'reservations',
+                        description: `예약 완전삭제 (${targetItem.name || rowId})`,
+                        rowIds: [Number(rowId)],
+                        before: [toRawReservation(targetItem)]
+                    });
+                }
                 showAppAlert("완전히 삭제되었습니다. (휴지통에 남지 않음)", "삭제 완료", "🗑️");
             } catch (err) {
                 if (targetItem) { allData.push(targetItem); filterData(true); }
@@ -4215,10 +5130,10 @@
                     <div class="bg-white rounded-2xl border border-rose-200 shadow-sm p-4 mb-2 flex items-center justify-between gap-3">
                         <div class="min-w-0">
                             <div class="flex items-center gap-2">
-                                <span class="text-[15px] font-black text-slate-900">${b.name || '이름없음'}</span>
-                                <span class="text-[13px] font-bold text-slate-500">${b.phone || '-'}</span>
+                                <span class="text-[15px] font-black text-slate-900">${escapeHtml(b.name || '이름없음')}</span>
+                                <span class="text-[13px] font-bold text-slate-500">${escapeHtml(b.phone || '-')}</span>
                             </div>
-                            ${b.memo ? `<div class="text-[12px] text-slate-400 font-bold mt-0.5">${b.memo}</div>` : ''}
+                            ${b.memo ? `<div class="text-[12px] text-slate-400 font-bold mt-0.5">${escapeHtml(b.memo)}</div>` : ''}
                             <div class="text-[11px] text-slate-300 font-bold mt-0.5">${dtStr} 등록</div>
                         </div>
                         <button onclick="deleteBlacklistEntry(${b.id})" class="shrink-0 text-[12.5px] font-bold bg-white text-rose-500 border border-rose-200 px-3 py-2 rounded-lg hover:bg-rose-50">삭제</button>
@@ -4231,8 +5146,14 @@
             const memo = document.getElementById('blacklist-add-memo').value.trim();
             if (!name && !phone) { showToast('이름 또는 연락처를 입력해주세요'); return; }
             try {
-                const { error } = await sb.from('blacklist').insert({ name, phone, memo });
+                const { data, error } = await sb.from('blacklist').insert({ name, phone, memo }).select().single();
                 if (error) throw new Error(error.message);
+                logAdminAction({
+                    type: 'insert', table: 'blacklist',
+                    description: `블랙리스트 추가 (${name || phone})`,
+                    rowIds: [data.id],
+                    after: [data]
+                });
                 document.getElementById('blacklist-add-name').value = '';
                 document.getElementById('blacklist-add-phone').value = '';
                 document.getElementById('blacklist-add-memo').value = '';
@@ -4243,10 +5164,19 @@
             }
         }
         function deleteBlacklistEntry(id) {
+            const targetEntry = blacklist.find(b => Number(b.id) === Number(id));
             showAppConfirm('블랙리스트에서 삭제할까요?', async () => {
                 try {
                     const { error } = await sb.from('blacklist').delete().eq('id', id);
                     if (error) throw new Error(error.message);
+                    if (targetEntry) {
+                        logAdminAction({
+                            type: 'delete', table: 'blacklist',
+                            description: `블랙리스트 삭제 (${targetEntry.name || targetEntry.phone || id})`,
+                            rowIds: [Number(id)],
+                            before: [targetEntry]
+                        });
+                    }
                     showToast('삭제했어요');
                     await loadBlacklist();
                 } catch (e) {
@@ -4297,10 +5227,10 @@
                         </div>
                         <div class="flex items-center gap-2 mb-1">
                             ${stBadge}
-                            <span class="text-[15px] font-black text-slate-900 truncate">${it.name || '이름 없음'}</span>
-                            <span class="text-[12px] font-bold text-slate-400">${it.phone || '-'}</span>
+                            <span class="text-[15px] font-black text-slate-900 truncate">${escapeHtml(it.name || '이름 없음')}</span>
+                            <span class="text-[12px] font-bold text-slate-400">${escapeHtml(it.phone || '-')}</span>
                         </div>
-                        <div class="text-[12.5px] font-bold text-slate-600 mb-3">📱 ${it.model || '-'} · 📅 ${it.startDate || '-'} ~ ${it.endDate || '-'}</div>
+                        <div class="text-[12.5px] font-bold text-slate-600 mb-3">📱 ${escapeHtml(it.model || '-')} · 📅 ${it.startDate || '-'} ~ ${it.endDate || '-'}</div>
                         <div class="flex gap-2">
                             <button onclick="restoreTrashItem(${it.row})" class="flex-1 text-[12.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 py-2 rounded-lg hover:bg-emerald-100">↩️ 복원</button>
                             <button onclick="permanentlyDeleteTrashItem(${it.row})" class="flex-1 text-[12.5px] font-bold bg-white text-rose-500 border border-rose-200 py-2 rounded-lg hover:bg-rose-50">완전 삭제</button>
@@ -4338,10 +5268,17 @@
                 return;
             }
             const ids = Array.from(selectedTrashIds);
+            const itemsToDelete = trashItems.filter(it => selectedTrashIds.has(it.row));
             showAppConfirm(`선택한 ${ids.length}건을 완전히 삭제할까요?\n(이 작업은 되돌릴 수 없습니다)`, async () => {
                 try {
                     const { error } = await sb.from('reservations').delete().in('id', ids);
                     if (error) throw new Error(error.message);
+                    logAdminAction({
+                        type: 'delete', table: 'reservations',
+                        description: `휴지통 선택 완전삭제 (${namesSummary(itemsToDelete)})`,
+                        rowIds: ids,
+                        before: itemsToDelete.map(toRawReservation)
+                    });
                     showToast(`${ids.length}건 완전히 삭제했어요`);
                     selectedTrashIds.clear();
                     await loadTrash();
@@ -4351,10 +5288,19 @@
             }, '선택 삭제', '삭제하기', 'bg-[#DC2626]', '🗑️');
         }
         async function restoreTrashItem(id) {
+            const targetItem = trashItems.find(it => String(it.row) === String(id));
             showAppConfirm('이 예약을 목록으로 복원할까요?', async () => {
                 try {
                     const { error } = await sb.from('reservations').update({ deleted_at: null }).eq('id', id);
                     if (error) throw new Error(error.message);
+                    if (targetItem) {
+                        logAdminAction({
+                            type: 'update', table: 'reservations',
+                            description: `휴지통에서 복원 (${targetItem.name || id})`,
+                            rowIds: [Number(id)],
+                            before: [toRawReservation(targetItem)]
+                        });
+                    }
                     showToast('복원했어요');
                     await loadTrash();
                     await fetchData();
@@ -4364,10 +5310,19 @@
             }, '예약 복원', '복원하기', 'bg-emerald-600', '↩️');
         }
         async function permanentlyDeleteTrashItem(id) {
+            const targetItem = trashItems.find(it => String(it.row) === String(id));
             showAppConfirm('휴지통에서 완전히 삭제할까요?\n(이 작업은 되돌릴 수 없습니다)', async () => {
                 try {
                     const { error } = await sb.from('reservations').delete().eq('id', id);
                     if (error) throw new Error(error.message);
+                    if (targetItem) {
+                        logAdminAction({
+                            type: 'delete', table: 'reservations',
+                            description: `휴지통 완전삭제 (${targetItem.name || id})`,
+                            rowIds: [Number(id)],
+                            before: [toRawReservation(targetItem)]
+                        });
+                    }
                     showToast('완전히 삭제했어요');
                     await loadTrash();
                 } catch (e) {
@@ -4383,10 +5338,17 @@
                 return;
             }
             const ids = trashItems.map(it => it.row).filter(id => id !== undefined && id !== null);
+            const itemsToDeleteAll = [...trashItems];
             showAppConfirm(`휴지통에 있는 ${ids.length}건을 전부 완전히 삭제할까요?\n(이 작업은 되돌릴 수 없습니다)`, async () => {
                 try {
                     const { error } = await sb.from('reservations').delete().in('id', ids);
                     if (error) throw new Error(error.message);
+                    logAdminAction({
+                        type: 'delete', table: 'reservations',
+                        description: `휴지통 전체 완전삭제 (${namesSummary(itemsToDeleteAll)})`,
+                        rowIds: ids,
+                        before: itemsToDeleteAll.map(toRawReservation)
+                    });
                     showToast(`${ids.length}건 완전히 삭제했어요`);
                     await loadTrash();
                 } catch (e) {
@@ -4651,6 +5613,13 @@
                 if (rows.length > 0) {
                     const { error } = await sb.from('admin_settings').upsert(rows, { onConflict: 'key' });
                     if (error) throw error;
+                    logAdminAction({
+                        type: 'settings', table: 'admin_settings',
+                        description: `설정 변경 (${rows.map(r => r.key).join(', ')})`,
+                        rowIds: rows.map(r => r.key),
+                        before: rows.map(r => ({ key: r.key, value: adminSettings[r.key] ?? null })),
+                        after: rows.map(r => ({ key: r.key, value: r.value }))
+                    });
                 }
                 adminSettings = cloneSettings(settingsDraft);
                 markSettingsDirty(false);
@@ -5498,6 +6467,12 @@
                 allData.sort(sortLogic);
                 filterData(true);
                 closeAddModal();
+                logAdminAction({
+                    type: 'insert', table: 'reservations',
+                    description: `신규 예약 생성 (${name})`,
+                    rowIds: [res.data.id],
+                    after: [res.data]
+                });
                 showAppAlert('새 예약이 생성되었습니다.\n이름: ' + name, '✅ 생성 완료', '🎉');
             } catch(e) {
                 showAppAlert('생성 실패: ' + e.message, '🚨 오류', '⚠️');
@@ -5714,6 +6689,56 @@
                 </div>
             </div>
             <div id="blacklist-list" class="flex-1 overflow-y-auto p-6"></div>
+        </div>
+    </div>
+
+    <!-- ===================== 실행 기록 오버레이 ===================== -->
+    <div id="actionlog-overlay" class="hidden fixed inset-0 z-[120] bg-slate-50">
+        <div class="h-full flex flex-col max-w-[900px] mx-auto w-full">
+            <div class="bg-white border-b border-slate-200 shadow-sm shrink-0">
+                <div class="flex items-center gap-3 px-6 py-4">
+                    <button onclick="closeActionLog()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 shrink-0" aria-label="닫기">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-lg font-black text-slate-900 leading-tight">📜 실행 기록</div>
+                        <div id="actionlog-count-label" class="text-xs font-bold text-slate-400 leading-tight">관리자가 수행한 작업 내역이에요. 잘못 실행했다면 실행취소할 수 있어요</div>
+                    </div>
+                    <button onclick="loadActionLogs()" class="h-10 px-4 flex items-center gap-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-sm shrink-0">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                        새로고침
+                    </button>
+                </div>
+            </div>
+            <div id="actionlog-list" class="flex-1 overflow-y-auto p-6"></div>
+        </div>
+    </div>
+
+    <!-- ===================== 물품보관함 오버레이 ===================== -->
+    <div id="locker-overlay" class="hidden fixed inset-0 z-[120] bg-slate-50">
+        <div class="h-full flex flex-col max-w-[900px] mx-auto w-full">
+            <div class="bg-white border-b border-slate-200 shadow-sm shrink-0">
+                <div class="flex items-center gap-3 px-6 py-4">
+                    <button onclick="closeLockerOverlay()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 shrink-0" aria-label="닫기">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-lg font-black text-slate-900 leading-tight">🗄️ 물품보관함</div>
+                        <div id="locker-desc" class="text-xs font-bold text-slate-400 leading-tight">1~50번 보관함 현황이에요. 번호를 눌러 기기를 입력하거나 예약에 배치할 수 있어요</div>
+                    </div>
+                    <button onclick="loadLockers()" class="h-10 px-4 flex items-center gap-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-sm shrink-0">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                        새로고침
+                    </button>
+                </div>
+                <div id="locker-target-banner" class="hidden px-6 pb-4">
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-[13px] font-bold text-indigo-700 flex items-center justify-between gap-3">
+                        <span id="locker-target-text"></span>
+                        <button onclick="clearLockerAssignTarget()" class="text-[12px] font-bold text-indigo-400 hover:text-indigo-600">배치 취소하고 보관함만 보기 ✕</button>
+                    </div>
+                </div>
+            </div>
+            <div id="locker-grid" class="flex-1 overflow-y-auto p-6 grid grid-cols-5 gap-3"></div>
         </div>
     </div>
 
