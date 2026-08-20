@@ -1335,8 +1335,9 @@
             const bannerText = document.getElementById('locker-target-text');
             if (!grid) return;
 
+            const targetItem = lockerAssignTargetRow ? allData.find(it => String(it.row) === String(lockerAssignTargetRow)) : null;
+            const targetModelBase = targetItem ? parseLockerDeviceModel(targetItem.model).base : '';
             if (lockerAssignTargetRow) {
-                const targetItem = allData.find(it => String(it.row) === String(lockerAssignTargetRow));
                 banner.classList.remove('hidden');
                 bannerText.innerText = targetItem ? `${targetItem.name}님(${targetItem.phone || '-'})을 배치할 보관함을 선택하세요` : '배치할 예약 정보를 찾을 수 없어요';
             } else {
@@ -1359,6 +1360,7 @@
                 const isAdmin = !!l.is_admin;
                 const isTarget = !!lockerAssignTargetRow && l.reservation_id != null && Number(l.reservation_id) === Number(lockerAssignTargetRow);
                 const occupant = l.reservation_id != null ? allData.find(it => Number(it.row) === Number(l.reservation_id)) : null;
+                const parsed = parseLockerDeviceModel(l.device_model);
 
                 let stateCls = 'border-slate-200 bg-white';
                 let statusBadge = '<span class="text-xs font-bold text-slate-300">비어있음</span>';
@@ -1372,6 +1374,10 @@
                 if (isAdmin) {
                     stateCls = 'border-rose-300 bg-rose-50';
                     statusBadge = '<span class="text-xs font-black text-rose-600">관리자용(창고)</span>';
+                }
+                // 배치 대상 예약의 대여모델과 다른 보관함은 연회색으로 흐리게 처리 (배정숫자는 무시하고 모델만 비교)
+                if (targetModelBase && !isTarget && parsed.base !== targetModelBase) {
+                    stateCls = 'border-slate-100 bg-slate-50 opacity-60';
                 }
 
                 const adminToggleHtml = `
@@ -1396,7 +1402,6 @@
                     actionHtml = `<button onclick="unassignLocker(${n})" class="w-full text-sm font-bold bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 py-2 rounded-lg">비우기</button>`;
                 }
 
-                const parsed = parseLockerDeviceModel(l.device_model);
                 const modelButtonsHtml = MODEL_LIST.map(m => `
                     <button onclick="event.stopPropagation(); setLockerModelBase(${n}, '${m}')" style="flex:1"
                         class="text-sm font-black py-2 px-1 rounded ${parsed.base === m ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}">${m}</button>
