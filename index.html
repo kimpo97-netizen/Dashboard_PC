@@ -1730,6 +1730,42 @@
             }
         }
 
+        // 예약의 review 필드(카카오맵/블로그/트위터/홈페이지/선택안함) 값으로 리뷰 요청 알림톡 templateKey를 고른다. 매칭 안 되면 null.
+        function reviewTemplateKeyFor(reviewType) {
+            const r = String(reviewType || '');
+            if (r.includes('카카오맵')) return 'review_kakaomap';
+            if (r.includes('블로그')) return 'review_blog';
+            if (r.includes('트위터')) return 'review_twitter';
+            if (r.includes('홈페이지')) return 'review_homepage';
+            if (r.includes('선택안함')) return 'review_none';
+            return null;
+        }
+
+        // 배송 시작 안내 알림톡(배송조회 버튼 포함) — 송장번호를 입력하는 4곳(수정창/인라인편집/엑셀매칭/엑셀일괄배정) 전부 이걸로 통일해서 호출
+        function sendDeliveryStartAlimtalk(phone, name, model, tracking) {
+            const trackingUrl = `https://m.epost.go.kr/postal/mobile/mobile.trace.RetrieveDomRigiTraceList.comm?sid1=${encodeURIComponent(tracking)}`;
+            sendAdminAlimtalk('delivery', phone, {
+                '#{이름}': name || '',
+                '#{모델}': model || '',
+                '#{송장번호}': tracking
+            }, [{ buttonType: 'WL', buttonName: '배송조회', linkMo: trackingUrl, linkPc: trackingUrl }]);
+        }
+
+        // 상태/송장/메모 변경 시 발송하는 알림톡 공용 헬퍼(베스트에포트 — 실패해도 저장 자체는 이미 완료된 상태로 둠, 콘솔에만 에러 남김)
+        async function sendAdminAlimtalk(templateKey, phone, variables, buttons) {
+            if (!phone) return;
+            try {
+                const { data, error } = await sb.functions.invoke('send-alimtalk', {
+                    body: { templateKey, phone, variables, buttons }
+                });
+                if (error) { console.error(templateKey + ' 알림톡 발송 실패', error); return; }
+                if (data && data.error) { console.error(templateKey + ' 알림톡 발송 실패', data.error); return; }
+                if (data && data.success === false) { console.error(templateKey + ' 알림톡 발송 실패', data.results || data); }
+            } catch (e) {
+                console.error(templateKey + ' 알림톡 발송 중 오류', e);
+            }
+        }
+
         async function sendLockerAlimtalk(phone, name, lockerNumber, password) {
             if (!phone) {
                 showAppAlert(`보관함 배치는 완료됐지만, 이 예약에 연락처가 없어서 알림톡을 보내지 못했어요.${password ? `\n(보관함 비밀번호: ${password})` : ''}`, '⚠️ 알림톡 미발송', '⚠️');
@@ -3267,6 +3303,8 @@
             const autoTrashRowIds = []; // [NEW] 확정으로 바뀌는 서비스 신청건(연장/백업/변경/취소) row id 모음
             const originSyncTasks = []; // [NEW] 확정으로 바뀌는 연장/주소변경 신청건 → 원예약에 반영할 작업 목록
             const lockersToRelease = []; // [NEW] 반납완료로 바뀌는 건 중 물품보관함이 배정되어 있던 목록
+            const waitingNotifyTargets = []; // [NEW] '대기'로 새로 바뀌는 건 중 알림톡 보낼 대상(phone) 모음
+            const reviewNotifyTargets = []; // [NEW] '반납완료'로 새로 바뀌는 건 중 리뷰요청 알림톡 보낼 대상 모음
 
             selectedRows.forEach(rowId => {
                 const targetIndex = allData.findIndex(item => String(item.row) === String(rowId));
@@ -3277,6 +3315,14 @@
                     const category = item.category;
                     allData[targetIndex].status = newStatus;
                     updates.push({ row: rowId, status: newStatus, orderTime: item.orderTime, phone: item.phone });
+                    // [NEW] 대기/대기중으로 새로 바뀌는 건 → 대기 등록 안내 알림톡 발송 대상으로 기록
+                    if ((newStatus === '대기' || newStatus === '대기중') && prevStatus !== '대기' && prevStatus !== '대기중') {
+                        waitingNotifyTargets.push(item.phone);
+                    }
+                    // [NEW] 반납/반납완료로 새로 바뀌는 건 → 리뷰 요청 알림톡 발송 대상으로 기록
+                    if ((newStatus === '반납' || newStatus === '반납완료') && prevStatus !== '반납' && prevStatus !== '반납완료') {
+                        reviewNotifyTargets.push({ phone: item.phone, name: item.name, review: item.review });
+                    }
                     // [NEW] 예약신청(원예약)이 아닌 신청건이 '확정'으로 바뀌면 자동 휴지통 이동 대상으로 기록
                     if (newStatus === '확정' && prevStatus !== '확정' && category && category !== '예약신청') {
                         autoTrashRowIds.push(String(rowId));
@@ -3351,6 +3397,17 @@
                 // [NEW] 저장 성공 후에만 반납완료로 바뀐 건들의 물품보관함을 비움
                 for (const { row, lockerNumber } of lockersToRelease) {
                     releaseLockerOnReturn(row, lockerNumber);
+                }
+                // [NEW] 저장 성공 후에만 대기 등록 안내 알림톡 발송 (일괄변경)
+                for (const phone of waitingNotifyTargets) {
+                    sendAdminAlimtalk('waiting', phone, {});
+                }
+                // [NEW] 저장 성공 후에만 리뷰 요청 알림톡 발송 (일괄변경)
+                for (const { phone, name, review } of reviewNotifyTargets) {
+                    const reviewKey = reviewTemplateKeyFor(review);
+                    if (reviewKey) {
+                        sendAdminAlimtalk(reviewKey, phone, reviewKey === 'review_none' ? {} : { '#{이름}': name || '' });
+                    }
                 }
             } catch (err) {
                 console.error("일괄 저장 실패", err);
@@ -3845,6 +3902,10 @@
                     detail: diffSummary(originalData, allData[targetIndex])
                 });
                 showToast('입력했어요');
+                // [NEW] 확정 상태에서 송장번호가 새로 등록/변경되면 배송 시작 안내 알림톡 발송
+                if (originalData.status === '확정' && tracking && originalData.trackingNumber !== tracking) {
+                    sendDeliveryStartAlimtalk(originalData.phone, originalData.name, model, tracking);
+                }
                 if (btnEl) {
                     const row = btnEl.closest('[data-mismatch-row]');
                     if (row) row.remove();
@@ -3949,6 +4010,7 @@
 
             const originalDataBackup = [];
             const updates = [];
+            const deliveryNotifyTargets = []; // [NEW] 확정 상태에서 새로 송장번호가 배정되는 건 중 배송 시작 안내 발송 대상 모음
             const limit = Math.min(selectedRows.length, trackingNumbers.length);
 
             const sortedSelectedRows = [...selectedRows].sort((a, b) => {
@@ -3962,18 +4024,28 @@
                 const targetIndex = allData.findIndex(item => String(item.row) === String(rowId));
                 if (targetIndex !== -1) {
                     originalDataBackup.push({ index: targetIndex, data: { ...allData[targetIndex] } });
-                    allData[targetIndex].trackingNumber = trackingNumbers[i]; 
-                    updates.push({ row: rowId, tracking: trackingNumbers[i], orderTime: allData[targetIndex].orderTime, phone: allData[targetIndex].phone });
+                    const item = allData[targetIndex];
+                    const newTracking = trackingNumbers[i];
+                    // [NEW] 확정 상태 + 송장번호가 실제로 바뀌는 건만 알림톡 발송 대상으로 기록
+                    if (item.status === '확정' && newTracking && item.trackingNumber !== newTracking) {
+                        deliveryNotifyTargets.push({ phone: item.phone, name: item.name, model: item.model, tracking: newTracking });
+                    }
+                    allData[targetIndex].trackingNumber = newTracking;
+                    updates.push({ row: rowId, tracking: newTracking, orderTime: item.orderTime, phone: item.phone });
                 }
             }
 
             closeBulkTrackingModal();
             clearSelection();
-            filterData(true); 
+            filterData(true);
             showAppAlert(`${updates.length}건의 송장번호를 일괄 배정했습니다.`, "일괄 배정 완료", "✅");
 
             try {
                 await sbBatchUpdate(updates);
+                // [NEW] 저장 성공 후에만 배송 시작 안내 알림톡 발송
+                for (const { phone, name, model, tracking } of deliveryNotifyTargets) {
+                    sendDeliveryStartAlimtalk(phone, name, model, tracking);
+                }
                 logAdminAction({
                     type: 'update', table: 'reservations',
                     description: `송장번호 일괄배정 (${namesSummary(originalDataBackup.map(b => b.data))})`,
@@ -4905,14 +4977,20 @@
                     status: item.status || '', tracking: newTracking, model: item.model || '', memo: item.memo || '', totalPrice: item.totalPrice || 0
                 };
 
-                apiFetch(API_URL, { 
-                    method: 'POST', 
+                apiFetch(API_URL, {
+                    method: 'POST',
                     redirect: 'follow',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload) 
+                    body: JSON.stringify(payload)
                 })
                 .then(res => res.json())
-                .then(data => { if(data.result !== 'success') throw new Error("서버 오류"); })
+                .then(data => {
+                    if(data.result !== 'success') throw new Error("서버 오류");
+                    // [NEW] 확정 상태에서 송장번호가 새로 등록/변경되면 배송 시작 안내 알림톡 발송
+                    if (item.status === '확정' && newTracking !== '') {
+                        sendDeliveryStartAlimtalk(item.phone, item.name, item.model, newTracking);
+                    }
+                })
                 .catch(err => {
                     allData[itemIndex].trackingNumber = oldTracking; filterData(true);
                     showToast("인터넷 연결 불안정으로 송장번호 입력이 취소되었습니다.");
@@ -5232,6 +5310,41 @@
                 // [NEW] 메인 저장이 성공한 뒤에만 '반납완료'로 바뀐 예약의 물품보관함을 비움
                 if (payload.status === '반납완료' && originalData && originalData.status !== '반납완료' && originalData.locker_number) {
                     releaseLockerOnReturn(rowId, originalData.locker_number);
+                }
+                // [NEW] 상태/송장/메모 변경에 따른 알림톡 발송 (기존 구글 Apps Script sbHandleUpdate 로직을 이전)
+                if (originalData) {
+                    const oldStatus = originalData.status || '';
+                    const newStatus = payload.status || '';
+                    const oldTracking = originalData.trackingNumber || '';
+                    const newTracking = payload.tracking || '';
+                    const oldMemo = originalData.memo || '';
+                    const newMemo = payload.memo || '';
+
+                    // 확정 + 송장번호 등록/변경 → 배송 시작 안내(배송조회 버튼 포함)
+                    if (newStatus === '확정' && newTracking !== '' && (oldStatus !== '확정' || oldTracking !== newTracking)) {
+                        sendDeliveryStartAlimtalk(payload.phone, payload.name, payload.model, newTracking);
+                    }
+
+                    // 대기/대기중으로 변경 → 대기 등록 안내
+                    if ((newStatus === '대기' || newStatus === '대기중') && (oldStatus !== '대기' && oldStatus !== '대기중')) {
+                        sendAdminAlimtalk('waiting', payload.phone, {});
+                    }
+
+                    // 메모에 백업시작/백업완료 추가 → 백업 시작/완료 안내
+                    if (newMemo.includes('백업시작') && !oldMemo.includes('백업시작')) {
+                        sendAdminAlimtalk('backup_start', payload.phone, {});
+                    }
+                    if (newMemo.includes('백업완료') && !oldMemo.includes('백업완료')) {
+                        sendAdminAlimtalk('backup_complete', payload.phone, {});
+                    }
+
+                    // 반납/반납완료로 새로 바뀌면 → 예약 시 선택한 리뷰 플랫폼으로 리뷰 요청 안내
+                    if ((newStatus === '반납' || newStatus === '반납완료') && (oldStatus !== '반납' && oldStatus !== '반납완료')) {
+                        const reviewKey = reviewTemplateKeyFor(payload.review);
+                        if (reviewKey) {
+                            sendAdminAlimtalk(reviewKey, payload.phone, reviewKey === 'review_none' ? {} : { '#{이름}': payload.name || '' });
+                        }
+                    }
                 }
             })
             .catch(err => {
