@@ -1889,6 +1889,9 @@
             });
             updateSortUI();
             loadBlacklist(); // [NEW] 블랙리스트를 미리 불러와야 예약 목록에 "사기" 뱃지가 처음부터 표시됨
+            // [FIX] admin_settings(모델별 보유 재고 대수 등)를 설정 화면을 열기 전에도 미리 불러와야
+            // '재고 부족 임박'이 처음부터 정확한 보유 대수 기준으로 계산됩니다. (전에는 설정을 한 번 열어야만 반영됨)
+            loadAdminSettings().then(() => renderLowStockAlerts());
             fetchData();
         }
 
