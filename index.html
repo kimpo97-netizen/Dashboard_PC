@@ -6679,11 +6679,12 @@
         // 해당 날짜에 설정된 항목 유무 (달력 점 표시) — draft 기준
         function settingsDayFlags(dateKey) {
             const blockedSchedule = settingsDraft.blocked_schedule || {};
+            const stockBlockedSchedule = settingsDraft.stock_blocked_schedule || {}; // [NEW] 재고 품절로 자동 마감된 날짜도 함께 표시
             const blockedDelivery = settingsDraft.blocked_delivery_dates || {};
             const availableOnsite = settingsDraft.available_onsite_dates || [];
             const venueAvailableDates = settingsDraft.venue_available_dates || {};
             return {
-                model: SETTINGS_MODELS.some(m => (blockedSchedule[m] || []).includes(dateKey)),
+                model: SETTINGS_MODELS.some(m => (blockedSchedule[m] || []).includes(dateKey) || (stockBlockedSchedule[m] || []).includes(dateKey)),
                 delivery: SETTINGS_DELIVERY_METHODS.some(m => (blockedDelivery[m.key] || []).includes(dateKey)),
                 onsite: availableOnsite.includes(dateKey),
                 venue: ((venueAvailableDates[dateKey] || {}).venues || []).length > 0
@@ -6843,10 +6844,13 @@
 
             if (settingsCategory === 'model') {
                 titleEl.innerText = `${dateLabel} · 대여모델 마감`;
+                note = '📦 표시는 재고 부족(품절)으로 자동 마감된 모델이에요. 직접 끄고 켤 수도 있지만, 재고가 남아있는 한 다음 계산 때 다시 자동으로 켜져요.';
                 const blocked = settingsDraft.blocked_schedule || {};
+                const stockBlocked = settingsDraft.stock_blocked_schedule || {}; // [NEW] 재고 품절 자동 마감
                 items = SETTINGS_MODELS.map(m => ({
                     label: m, on: keys.length > 0 && keys.every(k => (blocked[m] || []).includes(k)),
-                    toggle: `toggleSettingModel('${encodeURIComponent(m)}')`
+                    toggle: `toggleSettingModel('${encodeURIComponent(m)}')`,
+                    autoNote: (keys.length > 0 && keys.every(k => (stockBlocked[m] || []).includes(k))) ? '📦 재고 품절로 자동 마감됨' : ''
                 }));
             } else if (settingsCategory === 'delivery') {
                 titleEl.innerText = `${dateLabel} · 수령 방법 마감`;
@@ -6886,13 +6890,18 @@
             const rows = items.map(it => {
                 const stateOn = it.on;
                 // positive: on=긍정(초록), off=회색 / 마감형: on=빨강, off=회색
+                // [NEW] autoNote가 있으면(재고 품절 자동 마감) 수동으로 안 껐어도 주황 배지로 표시
                 const pill = stateOn
                     ? (positive ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white')
-                    : 'bg-slate-100 text-slate-500';
-                const pillText = stateOn ? onLabel : offLabel;
+                    : (it.autoNote ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500');
+                const pillText = stateOn ? onLabel : (it.autoNote ? '품절(자동)' : offLabel);
+                const borderCls = (it.autoNote && !stateOn) ? 'border-amber-200' : 'border-slate-200';
                 return `
-                    <button onclick="${it.toggle}" class="w-full flex items-center justify-between gap-2 p-3 mb-2 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 text-left">
-                        <span class="text-sm font-bold text-slate-800 min-w-0 truncate">${it.label}</span>
+                    <button onclick="${it.toggle}" class="w-full flex items-center justify-between gap-2 p-3 mb-2 bg-white hover:bg-slate-50 rounded-xl border ${borderCls} text-left">
+                        <span class="min-w-0">
+                            <span class="block text-sm font-bold text-slate-800 truncate">${it.label}</span>
+                            ${it.autoNote ? `<span class="block text-[10.5px] font-bold text-amber-600 mt-0.5">${it.autoNote}</span>` : ''}
+                        </span>
                         <span class="shrink-0 text-[12px] font-black px-3 py-1 rounded-full ${pill}">${pillText}</span>
                     </button>`;
             }).join('');
