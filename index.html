@@ -90,6 +90,7 @@
         .status-badge { display: inline-flex; align-items: center; justify-content: center; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; line-height: 1; border: 1px solid transparent; white-space: nowrap; }
         .status-wait { background-color: #FFF7ED; color: #C2410C; border-color: #FED7AA; }
         .status-confirm { background-color: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
+        .status-pickup { background-color: #FFF7ED; color: #C2410C; border-color: #FDBA74; }
         .status-return { background-color: #F1F5F9; color: #475569; border-color: #E2E8F0; }
         .status-hold { background-color: #F5F3FF; color: #7C3AED; border-color: #DDD6FE; } 
         .status-cancel { background-color: #FEF2F2; color: #DC2626; border-color: #FECACA; }
@@ -258,9 +259,6 @@
                     </button>
                     <button onclick="toggleSortMode(); closeMoreMenu();" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left text-[13px] font-bold text-slate-700">
                         <span class="text-base">↕️</span> 정렬: <span id="sort-mode-text" class="text-indigo-600 font-black">최신순</span>
-                    </button>
-                    <button onclick="closeMoreMenu(); switchViewMode();" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left text-[13px] font-bold text-slate-700">
-                        <span class="text-base">🔀</span> 화면 전환
                     </button>
                 </div>
             </div>
@@ -490,6 +488,7 @@
                     <div class="flex flex-wrap items-center justify-start gap-4 w-full">
                         <span class="text-[11px] font-black text-slate-400 w-12 shrink-0">상태변경</span>
                         <button onclick="bulkUpdateStatus('확정')" class="text-[14px] font-bold bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">확정</button>
+                        <button onclick="bulkUpdateStatus('반품')" class="text-[14px] font-bold bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">반품</button>
                         <button onclick="bulkUpdateStatus('반납완료')" class="text-[14px] font-bold bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">반납</button>
                         <button onclick="bulkUpdateStatus('대기')" class="text-[14px] font-bold bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">대기</button>
                         <button onclick="bulkUpdateStatus('취소')" class="text-[14px] font-bold bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 px-8 py-2.5 min-w-[84px] rounded-lg transition-colors shadow-sm">취소</button>
@@ -610,10 +609,11 @@
                     <div class="form-section shadow-sm bg-white">
                         <div class="form-title">진행 상태</div>
                         <input type="hidden" id="edit-status-val">
-                        <div class="grid grid-cols-5 gap-2">
+                        <div class="grid grid-cols-6 gap-2">
                             <button type="button" onclick="setEditStatus('예약신청')" id="btn-status-wait" class="status-btn">신청</button>
                             <button type="button" onclick="setEditStatus('대기')" id="btn-status-hold" class="status-btn">대기</button>
                             <button type="button" onclick="setEditStatus('확정')" id="btn-status-confirm" class="status-btn">확정</button>
+                            <button type="button" onclick="setEditStatus('반품')" id="btn-status-pickup" class="status-btn">반품</button>
                             <button type="button" onclick="setEditStatus('반납완료')" id="btn-status-return" class="status-btn">반납</button>
                             <button type="button" onclick="setEditStatus('취소')" id="btn-status-cancel" class="status-btn">취소</button>
                         </div>
@@ -1022,7 +1022,6 @@
             startApp();
         }
         async function doLogout() { await sb.auth.signOut(); location.reload(); }
-        function switchViewMode() { localStorage.removeItem('sc_admin_view_pref'); location.href = '관리자.html'; }
 
         // ===== 일괄작업 묶음 처리 (동시 실행으로 빠르게) =====
         function buildPatch(u) {
@@ -1814,7 +1813,7 @@
         }
 
         const MODEL_LIST = ['23U', '24U', '25U', '26U', '17P', '17PM'];
-        const STATUS_PRIORITY = { '예약신청': 1, '대기': 2, '확정': 3, '반납완료': 4, '취소': 5 };
+        const STATUS_PRIORITY = { '예약신청': 1, '대기': 2, '확정': 3, '반품': 4, '반납완료': 5, '취소': 6 };
 
         function isWithinUpcomingBusinessDays(startDateStr, maxDays) {
             if (!startDateStr || !startDateStr.includes('-')) return false;
@@ -2661,7 +2660,7 @@
                 delivery: { 'all': 0, '택배': 0, '공연장': 0, '사무실': 0 },
                 deliverySub: { 'all': 0, 'remaining': 0, 'pickedup': 0 },
                 return: { 'all': 0, '택배': 0, '당일': 0, '사무실': 0 },
-                status: { 'all': 0, '예약신청': 0, '대기': 0, '확정': 0, '반납완료': 0, '취소': 0 },
+                status: { 'all': 0, '예약신청': 0, '대기': 0, '확정': 0, '반품': 0, '반납완료': 0, '취소': 0 },
                 upcoming: {
                     '퀵': { 'all': 0, battery: 0, dates: {} },
                     '사무실': { 'all': 0, battery: 0, dates: {} },
@@ -2838,8 +2837,8 @@
                     }
                 }
 
-                const isReturnUpcoming = isWithinReturnBusinessDays(endDateStr, 7); 
-                const isReturnUpcomingTarget = isReturnUpcoming && !status.includes('반납') && !status.includes('취소');
+                const isReturnUpcoming = isWithinReturnBusinessDays(endDateStr, 7);
+                const isReturnUpcomingTarget = isReturnUpcoming && !status.includes('반납') && !status.includes('반품') && !status.includes('취소');
 
                 let normReturnWay = null;
                 if (returnWay.includes('택배')) normReturnWay = '택배';
@@ -4770,7 +4769,7 @@
             
             allData.forEach(item => {
                 const statusStr = String(item.status || '');
-                if (statusStr.includes('취소') || statusStr.includes('반납')) return; 
+                if (statusStr.includes('취소') || statusStr.includes('반납') || statusStr.includes('반품')) return;
                 
                 const cleanName = String(item.name || '').replace(/\s+/g, '');
                 if (cleanName.length >= 2) {
@@ -4801,19 +4800,21 @@
                 let accentColor = 'bg-slate-300';
                 if(item.status === '예약신청') accentColor = 'bg-orange-400';
                 else if(item.status === '확정') accentColor = 'bg-blue-600';
+                else if(item.status === '반품') accentColor = 'bg-orange-600';
                 else if(item.status === '반납완료') accentColor = 'bg-slate-500';
                 else if(item.status === '대기') accentColor = 'bg-purple-500';
                 else if(item.status === '취소') accentColor = 'bg-red-500';
 
                 let badgeClass = 'status-wait', badgeText = '신청';
                 if(item.status === '확정') { badgeClass = 'status-confirm'; badgeText = '확정'; }
+                else if(item.status === '반품') { badgeClass = 'status-pickup'; badgeText = '반품'; }
                 else if(item.status === '반납완료') { badgeClass = 'status-return'; badgeText = '반납'; }
                 else if(item.status === '대기') { badgeClass = 'status-hold'; badgeText = '대기'; }
                 else if(item.status === '취소') { badgeClass = 'status-cancel'; badgeText = '취소'; }
 
                 const cleanName = String(item.name || '').replace(/\s+/g, '');
                 const itemStatusStr = String(item.status || '');
-                const isExcludedFromDup = itemStatusStr.includes('취소') || itemStatusStr.includes('반납');
+                const isExcludedFromDup = itemStatusStr.includes('취소') || itemStatusStr.includes('반납') || itemStatusStr.includes('반품');
                 
                 let duplicateBadgeHtml = '';
                 if (!isExcludedFromDup && cleanName.length >= 2) {
@@ -5275,15 +5276,16 @@
 
         function applyEditStatus(status) {
             document.getElementById('edit-status-val').value = status;
-            ['wait','confirm','return','cancel','hold'].forEach(k => {
+            ['wait','confirm','pickup','return','cancel','hold'].forEach(k => {
                 const btn = document.getElementById(`btn-status-${k}`);
                 if(btn) { btn.className = "status-btn"; btn.style = ""; }
             });
-            const map = { '예약신청':'wait', '확정':'confirm', '반납완료':'return', '취소':'cancel', '대기':'hold' };
+            const map = { '예약신청':'wait', '확정':'confirm', '반품':'pickup', '반납완료':'return', '취소':'cancel', '대기':'hold' };
             const activeBtn = document.getElementById(`btn-status-${map[status]}`);
             if(activeBtn) {
                 if(status === '예약신청') { activeBtn.style.backgroundColor = '#FFF7ED'; activeBtn.style.color = '#C2410C'; activeBtn.style.borderColor = '#FDBA74'; }
                 else if(status === '확정') { activeBtn.style.backgroundColor = '#0064FF'; activeBtn.style.color = 'white'; activeBtn.style.borderColor = '#0064FF'; }
+                else if(status === '반품') { activeBtn.style.backgroundColor = '#EA580C'; activeBtn.style.color = 'white'; activeBtn.style.borderColor = '#EA580C'; }
                 else if(status === '반납완료') { activeBtn.style.backgroundColor = '#4B5563'; activeBtn.style.color = 'white'; activeBtn.style.borderColor = '#4B5563'; }
                 else if(status === '취소') { activeBtn.style.backgroundColor = '#DC2626'; activeBtn.style.color = 'white'; activeBtn.style.borderColor = '#DC2626'; }
                 else if(status === '대기') { activeBtn.style.backgroundColor = '#F5F3FF'; activeBtn.style.color = '#7C3AED'; activeBtn.style.borderColor = '#DDD6FE'; }
@@ -6252,6 +6254,55 @@
             // 여기서 바로 재계산해서 동기화 (재고 부족 임박/설정 화면 미리보기와 동일하게 즉시 반영)
             syncStockClosureToHomepage();
         }
+        // [NEW] 재고 부족 임박에서 특정 날짜(모델)의 잔여 수량을 관리자가 직접 조정할 수 있게 하는 보정값.
+        // 보유 대수(stock_counts)를 그대로 두고, 날짜별로 "+N/-N"만큼 더해서 계산에 반영합니다.
+        function getStockAdjustments(model) {
+            const all = (settingsDraft && settingsDraft.stock_manual_adjust) || {};
+            return all[model] || {};
+        }
+        // 잔여 수량을 newRemaining으로 맞추기 위해 필요한 보정값을 날짜 구간 전체에 적용
+        // [FIX] settingsDraft에만 담아두면 "저장" 버튼을 누르기 전까지는 서버에 반영되지 않아서,
+        // 새로고침하면 조정한 내용이 사라지고 원래 재고 수량 기준으로 되돌아가던 버그가 있었습니다.
+        // stock_blocked_schedule처럼 이 값도 즉시 DB에 직접 저장해서 새로고침해도 유지되게 합니다.
+        async function applyStockAdjustment(model, startKey, endKey, newRemaining) {
+            const start = parseDateKeyToDate(startKey);
+            const end = parseDateKeyToDate(endKey);
+            if (!start || !end || !Number.isFinite(newRemaining)) return;
+
+            const stock = getStockCounts();
+            const occupancy = getInventoryOccupancy();
+            const ranges = occupancy[model] || [];
+            const total = stock[model];
+            const allAdjust = cloneSettings(settingsDraft.stock_manual_adjust || {});
+            const modelAdjust = { ...(allAdjust[model] || {}) };
+
+            const cursor = new Date(start);
+            while (cursor <= end) {
+                const key = settingsDateKey(cursor.getFullYear(), cursor.getMonth() + 1, cursor.getDate());
+                const used = ranges.filter(r => cursor >= r.start && cursor <= r.end).length;
+                // remaining = total + adjust - used  =>  adjust = newRemaining - total + used
+                const delta = newRemaining - total + used;
+                if (delta === 0) delete modelAdjust[key]; else modelAdjust[key] = delta;
+                cursor.setDate(cursor.getDate() + 1);
+            }
+            allAdjust[model] = modelAdjust;
+
+            const { error } = await sb.from('admin_settings').upsert(
+                { key: 'stock_manual_adjust', value: allAdjust, updated_at: new Date().toISOString() },
+                { onConflict: 'key' }
+            );
+            if (error) { console.error('재고 수량 조정 저장 실패:', error); showToast('저장 실패: ' + (error.message || '')); return; }
+
+            adminSettings.stock_manual_adjust = allAdjust;
+            // [FIX] setDraft()는 "저장 안 됨" 상태로 표시하는데, 이 값은 위에서 이미 DB에 바로 저장했으므로
+            // settingsDraft만 갱신하고 관련 화면만 다시 그립니다 (저장 버튼이 불필요하게 활성화되는 것 방지)
+            settingsDraft.stock_manual_adjust = allAdjust;
+            renderStockInputs();
+            renderInventoryTable();
+            renderLowStockAlerts();
+            // [NEW] 재고 수량 조정 즉시 홈페이지 마감 여부에도 반영
+            syncStockClosureToHomepage();
+        }
         function getModelBucket(modelStr) {
             const m = String(modelStr || '').toUpperCase();
             for (const model of STOCK_MODEL_ORDER) {
@@ -6344,7 +6395,8 @@
                 const cells = MODEL_LIST.map(m => {
                     const total = stock[m];
                     const used = occupancy[m].filter(r => d >= r.start && d <= r.end).length;
-                    const avail = total - used;
+                    const dayKey = settingsDateKey(d.getFullYear(), d.getMonth() + 1, d.getDate());
+                    const avail = total + (getStockAdjustments(m)[dayKey] || 0) - used;
                     let cls = 'text-emerald-700';
                     if (avail <= 0) cls = 'text-rose-600 font-black';
                     else if (avail <= 3) cls = 'text-amber-600 font-bold';
@@ -6383,15 +6435,17 @@
         // 택배/퀵처럼 미리 발송해야 하는 예약이 이미 그 전날부터 재고를 차지하고 있었다면(리드타임),
         // 구간의 시작일을 그 예약이 실제로 재고를 빼간 날짜까지 앞당기고, 그러면서 겹치거나 붙는 구간은 합칩니다.
         // (예: 9/13~14가 기준치 이하여도, 그 기간과 겹치는 예약이 택배 수령이라 9/11부터 이미 재고를 썼다면 9/11부터로 확장)
-        function findCriticalRanges(ranges, total, threshold, lookaheadDays) {
+        function findCriticalRanges(ranges, total, threshold, lookaheadDays, adjustments) {
             const today = new Date(); today.setHours(0, 0, 0, 0);
+            const adjust = adjustments || {};
 
             const rawRuns = [];
             let run = null;
             for (let i = 0; i < lookaheadDays; i++) {
                 const d = new Date(today); d.setDate(d.getDate() + i);
                 const used = ranges.filter(r => d >= r.start && d <= r.end).length;
-                const remaining = total - used;
+                const dayKey = settingsDateKey(d.getFullYear(), d.getMonth() + 1, d.getDate());
+                const remaining = total + (adjust[dayKey] || 0) - used;
                 if (remaining <= threshold) {
                     if (run) run.end = d; else run = { start: d, end: d };
                 } else if (run) {
@@ -6431,7 +6485,8 @@
                 const total = stock[model];
                 const threshold = total <= LOW_STOCK_TIGHT_STOCK_MAX ? LOW_STOCK_THRESHOLD_TIGHT : LOW_STOCK_THRESHOLD;
                 const ranges = occupancy[model];
-                const merged = findCriticalRanges(ranges, total, threshold, LOW_STOCK_LOOKAHEAD_DAYS);
+                const adjust = getStockAdjustments(model);
+                const merged = findCriticalRanges(ranges, total, threshold, LOW_STOCK_LOOKAHEAD_DAYS, adjust);
 
                 // 합쳐진 구간 안에서 실제로 가장 심각했던(최소) 잔여 대수를 다시 계산해 대표값으로 사용
                 merged.forEach(r => {
@@ -6439,7 +6494,8 @@
                     const cursor = new Date(r.start);
                     while (cursor <= r.end) {
                         const used = ranges.filter(res => cursor >= res.start && cursor <= res.end).length;
-                        remaining = Math.min(remaining, total - used);
+                        const dayKey = settingsDateKey(cursor.getFullYear(), cursor.getMonth() + 1, cursor.getDate());
+                        remaining = Math.min(remaining, total + (adjust[dayKey] || 0) - used);
                         cursor.setDate(cursor.getDate() + 1);
                     }
                     alerts.push({ model, remaining, start: r.start, end: r.end });
@@ -6463,7 +6519,8 @@
             MODEL_LIST.forEach(model => {
                 const total = stock[model];
                 const ranges = occupancy[model];
-                const merged = findCriticalRanges(ranges, total, 0, LOW_STOCK_LOOKAHEAD_DAYS); // 완전 품절(0대 이하)만 마감 처리
+                const adjust = getStockAdjustments(model);
+                const merged = findCriticalRanges(ranges, total, 0, LOW_STOCK_LOOKAHEAD_DAYS, adjust); // 완전 품절(0대 이하)만 마감 처리
 
                 const dateKeys = [];
                 merged.forEach(r => {
@@ -6523,27 +6580,54 @@
                     : `${fmtMonthDay(a.start)}~${fmtMonthDay(a.end)}`;
                 // [FIX] Tailwind 클래스명(bg-rose-700 등)이 이 프로젝트의 사전 빌드 CSS에 없으면 배경이 그냥 흰색이 되어
                 // 흰 글씨가 안 보이는 문제가 있었습니다. 그래서 클래스 대신 인라인 style로 색을 직접 지정합니다.
-                let badgeText, badgeColor;
-                if (a.remaining < 0) { badgeText = `잔여 ${a.remaining}대`; badgeColor = '#9F1239'; }      // 진한 적갈색 (초과예약)
-                else if (a.remaining === 0) { badgeText = '품절'; badgeColor = '#DC2626'; }                  // 빨강 (품절)
-                else { badgeText = `잔여 ${a.remaining}대`; badgeColor = '#2563EB'; }                        // 파랑 (부족 임박)
+                // [NEW] 품절 계열은 주황~빨강 사이 파스텔톤, 잔여 계열은 하늘색~파랑 사이 파스텔톤으로 표시
+                let badgeText, badgeColor, badgeTextColor;
+                if (a.remaining < 0) { badgeText = `잔여 ${a.remaining}대`; badgeColor = '#FEE2E2'; badgeTextColor = '#B91C1C'; }   // 연한 빨강 (초과예약)
+                else if (a.remaining === 0) { badgeText = '품절'; badgeColor = '#FFEDD5'; badgeTextColor = '#C2410C'; }              // 연한 주황 (품절)
+                else { badgeText = `잔여 ${a.remaining}대`; badgeColor = '#E0F2FE'; badgeTextColor = '#1D4ED8'; }                    // 연한 하늘색 (부족 임박)
 
                 const startKey = fmtDateKey(a.start), endKey = fmtDateKey(a.end);
                 const isActive = activeLowStockFilter && activeLowStockFilter.model === a.model &&
                     activeLowStockFilter.start.getTime() === a.start.getTime() && activeLowStockFilter.end.getTime() === a.end.getTime();
                 const ringCls = isActive ? 'ring-2 ring-indigo-500 border-indigo-300' : 'border-rose-100';
 
-                // [NEW] 클릭하면 이 기간에 해당 모델 재고를 차지하고 있는 예약만 메인 목록에 필터링해서 보여줌
-                return `<button type="button" onclick="filterByLowStock('${a.model}', '${startKey}', '${endKey}')" class="w-full flex items-center justify-between gap-2 bg-white border ${ringCls} rounded-xl px-3 py-2.5 shadow-sm hover:bg-rose-50 transition-colors text-left">
-                    <div class="flex items-center gap-2 min-w-0">
+                // [NEW] 왼쪽(날짜·모델)을 누르면 이 기간에 재고를 차지하는 예약만 필터링해서 보여주고,
+                // 오른쪽 잔여 수량 배지를 누르면 잔여 수량을 직접 조정하는 팝업이 열립니다.
+                return `<div class="w-full flex items-center gap-2 bg-white border ${ringCls} rounded-xl px-3 py-2.5 shadow-sm">
+                    <button type="button" onclick="filterByLowStock('${a.model}', '${startKey}', '${endKey}')" class="flex items-center gap-2 min-w-0 flex-1 text-left hover:opacity-70 transition-opacity">
                         <span class="text-[11px] font-black text-slate-500 font-tnum shrink-0">${dateLabel}</span>
                         <span class="text-[13px] font-black text-slate-800 shrink-0">${a.model}</span>
-                    </div>
-                    <span class="text-[11px] font-black text-white px-2 py-1 rounded-lg shrink-0 whitespace-nowrap" style="background-color:${badgeColor}">${badgeText}</span>
-                </button>`;
+                    </button>
+                    <button type="button" onclick="openStockAdjustPopup('${a.model}', '${startKey}', '${endKey}', ${a.remaining})" class="text-[11px] font-black px-2 py-1 rounded-lg shrink-0 whitespace-nowrap hover:opacity-80 transition-opacity" style="background-color:${badgeColor}; color:${badgeTextColor}" title="잔여 수량 조정">${badgeText} ✏️</button>
+                </div>`;
             }).join('');
         }
         function fmtDateKey(d) { return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; }
+        // [NEW] 재고 부족 임박 배지 클릭: 해당 기간의 잔여 수량을 직접 입력해서 조정하는 팝업
+        function openStockAdjustPopup(model, startKey, endKey, currentRemaining) {
+            const start = parseDateKeyToDate(startKey), end = parseDateKeyToDate(endKey);
+            if (!start || !end) return;
+            const dateLabel = start.getTime() === end.getTime() ? fmtMonthDay(start) : `${fmtMonthDay(start)}~${fmtMonthDay(end)}`;
+            const html = `
+                <div class="mb-2 text-left">
+                    <label class="block text-xs font-bold text-slate-500 mb-1.5">새 잔여 수량 (이 기간 전체에 적용)</label>
+                    <input id="stock-adjust-input" type="number" value="${currentRemaining}" class="w-full h-12 rounded-xl border border-slate-200 text-center font-black text-lg outline-none focus:border-indigo-400" onkeydown="if(event.key==='Enter'){document.getElementById('stock-adjust-confirm-btn').click();}">
+                </div>
+                <div class="flex gap-3 mt-2">
+                    <button onclick="closeAppModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl text-base transition-colors">취소</button>
+                    <button id="stock-adjust-confirm-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-base transition-all">적용</button>
+                </div>
+            `;
+            setupModal(`${model} 잔여 수량 조정`, `${dateLabel} 기간의 재고 계산에 보정값을 적용합니다. 예약이 늘거나 취소되면 이 값을 기준으로 다시 계산돼요.`, '📦', html);
+            document.getElementById('stock-adjust-confirm-btn').onclick = async () => {
+                const val = parseInt(document.getElementById('stock-adjust-input').value, 10);
+                if (!Number.isFinite(val)) { showToast('숫자를 입력해주세요.'); return; }
+                closeAppModal();
+                await applyStockAdjustment(model, startKey, endKey, val);
+                showToast(`${model} · ${dateLabel} 잔여 수량을 ${val}대로 조정했어요.`);
+            };
+            setTimeout(() => { const inp = document.getElementById('stock-adjust-input'); if (inp) { inp.focus(); inp.select(); } }, 50);
+        }
         // [NEW] 재고 부족 임박 항목 클릭: 다른 필터를 모두 초기화하고 그 기간에 해당 모델 재고를 차지한 예약만 표시
         function filterByLowStock(model, startKey, endKey) {
             const start = parseDateKeyToDate(startKey);
@@ -7377,15 +7461,16 @@
         /* ---- 상태 버튼 ---- */
         function setAddStatus(val) {
             document.getElementById('add-status-val').value = val;
-            ['wait','hold','confirm','return','cancel'].forEach(function(k){
+            ['wait','hold','confirm','pickup','return','cancel'].forEach(function(k){
                 var b=document.getElementById('add-btn-status-'+k);
                 if(b){ b.style.backgroundColor=''; b.style.color=''; b.style.borderColor=''; }
             });
-            var map = { '예약신청':'wait','대기':'hold','확정':'confirm','반납완료':'return','취소':'cancel' };
+            var map = { '예약신청':'wait','대기':'hold','확정':'confirm','반품':'pickup','반납완료':'return','취소':'cancel' };
             var activeBtn = document.getElementById('add-btn-status-'+(map[val]||''));
             if(activeBtn){
                 if(val==='예약신청'){ activeBtn.style.backgroundColor='#FFF7ED'; activeBtn.style.color='#C2410C'; activeBtn.style.borderColor='#FDBA74'; }
                 else if(val==='확정'){  activeBtn.style.backgroundColor='#0064FF'; activeBtn.style.color='white'; activeBtn.style.borderColor='#0064FF'; }
+                else if(val==='반품'){  activeBtn.style.backgroundColor='#EA580C'; activeBtn.style.color='white'; activeBtn.style.borderColor='#EA580C'; }
                 else if(val==='반납완료'){ activeBtn.style.backgroundColor='#4B5563'; activeBtn.style.color='white'; activeBtn.style.borderColor='#4B5563'; }
                 else if(val==='취소'){  activeBtn.style.backgroundColor='#DC2626'; activeBtn.style.color='white'; activeBtn.style.borderColor='#DC2626'; }
                 else if(val==='대기'){  activeBtn.style.backgroundColor='#F5F3FF'; activeBtn.style.color='#7C3AED'; activeBtn.style.borderColor='#DDD6FE'; }
@@ -7566,10 +7651,11 @@
                 <div class="form-section bg-white shadow-sm">
                     <div class="form-title">진행 상태</div>
                     <input type="hidden" id="add-status-val" value="예약신청">
-                    <div class="grid grid-cols-5 gap-2">
+                    <div class="grid grid-cols-6 gap-2">
                         <button type="button" onclick="setAddStatus('예약신청')" id="add-btn-status-wait" class="status-btn active">신청</button>
                         <button type="button" onclick="setAddStatus('대기')"     id="add-btn-status-hold"    class="status-btn">대기</button>
                         <button type="button" onclick="setAddStatus('확정')"     id="add-btn-status-confirm" class="status-btn">확정</button>
+                        <button type="button" onclick="setAddStatus('반품')"     id="add-btn-status-pickup"  class="status-btn">반품</button>
                         <button type="button" onclick="setAddStatus('반납완료')" id="add-btn-status-return"  class="status-btn">반납</button>
                         <button type="button" onclick="setAddStatus('취소')"     id="add-btn-status-cancel"  class="status-btn">취소</button>
                     </div>
