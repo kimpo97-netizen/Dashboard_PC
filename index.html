@@ -258,6 +258,9 @@
                     <button onclick="closeMoreMenu(); openBlacklist();" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left text-[13px] font-bold text-rose-600">
                         <span class="text-base">🚨</span> 블랙리스트
                     </button>
+                    <button onclick="closeMoreMenu(); openFollowCheck();" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left text-[13px] font-bold text-pink-600">
+                        <span class="text-base">💗</span> 팔로우 대조
+                    </button>
                     <button onclick="toggleSortMode(); closeMoreMenu();" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left text-[13px] font-bold text-slate-700">
                         <span class="text-base">↕️</span> 정렬: <span id="sort-mode-text" class="text-indigo-600 font-black">최신순</span>
                     </button>
@@ -2114,6 +2117,16 @@
         // [NEW] 주소변경신청은 검토 없이 바로 확정 처리 — 배송지만 바뀌는 요청이라 리스크가 낮으므로
         // 관리자가 일일이 확정을 누르지 않아도 되게, 데이터를 불러올 때마다 자동으로 처리합니다.
         // (연장신청/변경신청처럼 다른 신청 종류는 그대로 관리자 확인을 거칩니다)
+        // [NEW] 같은 원예약(origin_ref)에 주소변경신청이 2건 이상이면 제일 마지막에 신청한 건(id가 가장 큰 건)의 주소만 반영
+        function keepLatestAddressTasks(tasks) {
+            const latest = {};
+            tasks.forEach(t => {
+                if (t.type && t.type !== 'address') return;
+                const prev = latest[t.origin_ref];
+                if (!prev || Number(t.row) > Number(prev.row)) latest[t.origin_ref] = t;
+            });
+            return tasks.filter(t => (t.type && t.type !== 'address') || latest[t.origin_ref] === t);
+        }
         async function autoConfirmAddressChangeRequests() {
             const targets = allData.filter(item => item.category === '주소변경신청' && item.status !== '확정' && !item.deleted_at);
             if (targets.length === 0) return;
@@ -2133,7 +2146,7 @@
                 updates.push({ row: item.row, status: '확정' });
                 autoTrashRowIds.push(String(item.row));
                 if (item.origin_ref) {
-                    originSyncTasks.push({ origin_ref: item.origin_ref, address: item.address, zipCode: item.zipCode });
+                    originSyncTasks.push({ origin_ref: item.origin_ref, row: item.row, address: item.address, zipCode: item.zipCode });
                 }
             });
 
@@ -2148,7 +2161,7 @@
                     before: beforeSnapshots.map(toRawReservation)
                 });
 
-                for (const task of originSyncTasks) {
+                for (const task of keepLatestAddressTasks(originSyncTasks)) {
                     try {
                         const ref = JSON.parse(task.origin_ref);
                         const origIdx = allData.findIndex(r =>
@@ -3831,7 +3844,7 @@
                             originSyncTasks.push({ origin_ref: item.origin_ref, type: 'extend', endDate: item.endDate });
                         } else if (String(category || '').includes('주소변경')) {
                             // [NEW] 주소변경신청이 확정되면 원예약의 수령방법은 항상 '택배수령'으로 고정
-                            originSyncTasks.push({ origin_ref: item.origin_ref, type: 'address', address: item.address, zipCode: item.zipCode, delivery: '택배수령' });
+                            originSyncTasks.push({ origin_ref: item.origin_ref, type: 'address', row: rowId, address: item.address, zipCode: item.zipCode, delivery: '택배수령' });
                         } else if (String(category || '') === '변경신청') {
                             // [NEW] 대여모델만 바꾸는 신청건 — 원예약의 model을 바꾸지 않으면 재고 계산이 옛 모델 기준으로 남아 새 모델 품절이 반영되지 않음
                             originSyncTasks.push({ origin_ref: item.origin_ref, type: 'model', model: item.model });
@@ -3867,7 +3880,7 @@
                     before: originalDataBackup.map(b => toRawReservation(b.data))
                 });
                 // [NEW] 저장 성공 후에만 연장/주소변경 신청 내용을 원예약(origin_ref 매칭)에 반영
-                for (const task of originSyncTasks) {
+                for (const task of keepLatestAddressTasks(originSyncTasks)) {
                     try {
                         const ref = JSON.parse(task.origin_ref);
                         const origIdx = allData.findIndex(r =>
@@ -6014,6 +6027,195 @@
             document.getElementById('blacklist-overlay').classList.add('hidden');
             document.body.style.overflow = '';
         }
+
+        // ===================== 팔로우 대조 =====================
+        // 홈페이지 예약의 review 칸에 '팔로우(X @abc, 인스타 @def)'로 저장된 아이디를
+        // 관리자가 붙여넣은 팔로워 목록(sns_followers 테이블)과 맞춰본다.
+        const FOLLOW_SELF = { x: 'serin_cam', insta: 'serincam.official' };
+        const FOLLOW_UI_WORDS = ['follow', 'following', 'followers', 'remove', 'message', 'verified', 'search', 'follows you'];
+        function openFollowCheck() {
+            document.getElementById('followcheck-overlay').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            ['x', 'insta'].forEach(p => {
+                let t = '';
+                try { t = localStorage.getItem('followcheck-updated-' + p) || ''; } catch (e) {}
+                const el = document.getElementById('followcheck-' + p + '-msg');
+                if (el && t) el.textContent = '마지막 저장 ' + t;
+            });
+            renderFollowCheck();
+        }
+        function closeFollowCheck() {
+            document.getElementById('followcheck-overlay').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        // X 팔로워 화면 복사본: 아이디는 '@handle' 한 줄로 들어옴 (소개글 속 @멘션은 같은 줄에 다른 글자가 있어 제외됨)
+        function parseXFollowers(text) {
+            const out = new Set();
+            String(text || '').split(/\r?\n/).forEach(line => {
+                const m = line.trim().match(/^@([A-Za-z0-9_]{1,15})(?:\s*(?:Follows you|나를 팔로우합니다|회원님을 팔로우합니다|팔로우함))?$/);
+                if (m) out.add(m[1].toLowerCase());
+            });
+            out.delete(FOLLOW_SELF.x);
+            return [...out];
+        }
+        // 인스타: 다운로드 JSON(string_list_data) / 다운로드 HTML(링크) / 웹 팔로워 창 복사본(아이디 한 줄) 모두 지원
+        function parseInstaFollowers(text) {
+            const out = new Set();
+            const raw = String(text || '').trim();
+            const addHandle = h => {
+                h = String(h || '').trim().replace(/^@+/, '').toLowerCase();
+                if (/^[a-z0-9._]{1,30}$/.test(h) && /[a-z0-9]/.test(h)) out.add(h);
+            };
+            let parsedJson = false;
+            if (raw.startsWith('[') || raw.startsWith('{')) {
+                try {
+                    const walk = o => {
+                        if (Array.isArray(o)) return o.forEach(walk);
+                        if (o && typeof o === 'object') {
+                            if (Array.isArray(o.string_list_data)) {
+                                o.string_list_data.forEach(d => {
+                                    if (d && d.value) addHandle(d.value);
+                                    else if (d && d.href) { const m = String(d.href).match(/instagram\.com\/(?:_u\/)?([A-Za-z0-9._]{1,30})/); if (m) addHandle(m[1]); }
+                                });
+                                if (o.title && !o.string_list_data.some(d => d && d.value)) addHandle(o.title);
+                            }
+                            Object.values(o).forEach(walk);
+                        }
+                    };
+                    walk(JSON.parse(raw));
+                    parsedJson = true;
+                } catch (e) {}
+            }
+            if (!parsedJson && /instagram\.com\//.test(raw)) {
+                const skip = new Set(['p', 'reel', 'reels', 'explore', 'accounts', 'stories', 'direct', '_u']);
+                (raw.match(/instagram\.com\/(?:_u\/)?([A-Za-z0-9._]{1,30})/g) || []).forEach(s => {
+                    const h = s.replace(/^.*instagram\.com\/(?:_u\/)?/, '');
+                    if (!skip.has(h.toLowerCase())) addHandle(h);
+                });
+            } else if (!parsedJson) {
+                raw.split(/\r?\n/).forEach(line => {
+                    const t = line.trim();
+                    if (!/^@?[A-Za-z0-9._]{1,30}$/.test(t)) return;
+                    if (FOLLOW_UI_WORDS.includes(t.toLowerCase())) return;
+                    addHandle(t);
+                });
+            }
+            out.delete(FOLLOW_SELF.insta);
+            return [...out];
+        }
+        function loadFollowFile(input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                document.getElementById('followcheck-insta').value = reader.result;
+                saveFollowList('insta');
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+        async function saveFollowList(platform) {
+            const ta = document.getElementById('followcheck-' + platform);
+            const msg = document.getElementById('followcheck-' + platform + '-msg');
+            const handles = platform === 'x' ? parseXFollowers(ta.value) : parseInstaFollowers(ta.value);
+            if (!handles.length) {
+                msg.className = 'text-[11px] font-bold text-rose-500';
+                msg.textContent = '아이디를 찾지 못했어요. 팔로워 화면을 전체 복사했는지 확인해주세요';
+                return;
+            }
+            msg.className = 'text-[11px] font-bold text-slate-400';
+            msg.textContent = handles.length + '명 저장 중...';
+            try {
+                for (let i = 0; i < handles.length; i += 500) {
+                    const rows = handles.slice(i, i + 500).map(h => ({ platform, handle: h }));
+                    const { error } = await sb.from('sns_followers').upsert(rows, { onConflict: 'platform,handle', ignoreDuplicates: true });
+                    if (error) throw error;
+                }
+                const now = new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                try { localStorage.setItem('followcheck-updated-' + platform, now); } catch (e) {}
+                msg.className = 'text-[11px] font-bold text-emerald-600';
+                msg.textContent = handles.length + '명 저장했어요 (' + now + ')';
+                ta.value = '';
+                renderFollowCheck();
+            } catch (e) {
+                msg.className = 'text-[11px] font-bold text-rose-500';
+                msg.textContent = '저장하지 못했어요. sns_followers 테이블(SQL)을 먼저 실행했는지 확인해주세요. ' + (e.message || '');
+            }
+        }
+        function parseFollowFromReview(review) {
+            const m = String(review || '').match(/팔로우\(([^)]*)\)/);
+            const res = {};
+            if (!m) return res;
+            m[1].split(',').forEach(part => {
+                const t = part.trim();
+                const mx = t.match(/^X\s+@?([A-Za-z0-9_]{1,15})$/i);
+                const mi = t.match(/^인스타\s+@?([A-Za-z0-9._]{1,30})$/);
+                if (mx) res.x = mx[1].toLowerCase();
+                else if (mi) res.insta = mi[1].toLowerCase();
+                else if (/^X\s/i.test(t)) res.x = '';
+                else if (/^인스타\s/.test(t)) res.insta = '';
+            });
+            return res;
+        }
+        async function renderFollowCheck() {
+            const list = document.getElementById('followcheck-list');
+            const summary = document.getElementById('followcheck-summary');
+            if (!list) return;
+            const hidePast = document.getElementById('followcheck-hide-past').checked;
+            const onlyMissing = document.getElementById('followcheck-only-missing').checked;
+            let items = (allData || []).filter(i => /팔로우\(/.test(i.review || '')).map(i => ({ item: i, f: parseFollowFromReview(i.review) }));
+            if (hidePast) items = items.filter(r => !/(반납완료|취소|환불)/.test(r.item.status || ''));
+            if (!items.length) {
+                summary.innerHTML = '';
+                list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-10">팔로우 할인을 선택한 예약이 없어요</div>`;
+                return;
+            }
+            list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-10">대조하는 중...</div>`;
+            const found = { x: new Set(), insta: new Set() };
+            try {
+                for (const p of ['x', 'insta']) {
+                    const handles = [...new Set(items.map(r => r.f[p]).filter(Boolean))];
+                    for (let i = 0; i < handles.length; i += 200) {
+                        const { data, error } = await sb.from('sns_followers').select('handle').eq('platform', p).in('handle', handles.slice(i, i + 200));
+                        if (error) throw error;
+                        (data || []).forEach(d => found[p].add(d.handle));
+                    }
+                }
+            } catch (e) {
+                list.innerHTML = `<div class="text-center text-rose-500 text-sm font-bold py-10 px-4 leading-relaxed">팔로워 목록을 불러오지 못했어요.<br>(sns_followers 테이블 SQL을 실행했는지 확인해주세요)<br><span class="text-slate-400 font-medium">${escapeHtml(e.message || '')}</span></div>`;
+                return;
+            }
+            let okCount = 0, missCount = 0;
+            const rows = items.map(r => {
+                const cells = {};
+                let missing = false;
+                ['x', 'insta'].forEach(p => {
+                    if (!(p in r.f)) { cells[p] = `<span class="text-slate-300">선택 안 함</span>`; return; }
+                    const h = r.f[p];
+                    if (h && found[p].has(h)) cells[p] = `<span class="text-emerald-600">✅ @${escapeHtml(h)}</span>`;
+                    else { missing = true; cells[p] = `<span class="text-rose-500">❌ @${escapeHtml(h || '-')}</span>`; }
+                });
+                if (missing) missCount++; else okCount++;
+                return { r, cells, missing };
+            }).filter(x => !onlyMissing || x.missing);
+            summary.innerHTML = `<span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[12px] font-bold">확인 ${okCount}</span><span class="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 text-[12px] font-bold">목록에 없음 ${missCount}</span>`;
+            if (!rows.length) {
+                list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-10">목록에 없는 예약이 없어요</div>`;
+                return;
+            }
+            const head = `<div class="fc-grid gap-3 px-4 py-2 text-[11px] font-bold text-slate-400">
+                <span>예약자 · 일정</span><span>X</span><span>인스타</span><span>상태</span></div>`;
+            list.innerHTML = head + rows.map(({ r, cells, missing }) => {
+                const it = r.item;
+                const phone4 = String(it.phone || '').replace(/[^0-9]/g, '').slice(-4);
+                return `<div class="fc-grid gap-3 items-center bg-white border ${missing ? 'border-rose-200' : 'border-slate-200'} rounded-xl px-4 py-3 mb-2 text-[13px] font-bold">
+                    <span class="min-w-0"><span class="text-slate-800">${escapeHtml(it.name || '')}</span> <span class="text-slate-400 text-[11px]">${phone4 ? '(' + phone4 + ')' : ''}</span><br><span class="text-[11px] text-slate-400">${escapeHtml(it.startDate || '')} · ${escapeHtml(it.model || '')}</span></span>
+                    <span class="min-w-0 break-all">${cells.x}</span>
+                    <span class="min-w-0 break-all">${cells.insta}</span>
+                    <span class="text-[12px] text-slate-500">${escapeHtml(it.status || '')}</span>
+                </div>`;
+            }).join('');
+        }
         async function loadBlacklist() {
             const list = document.getElementById('blacklist-list');
             if (list) list.innerHTML = `<div class="text-center text-slate-400 text-sm font-bold py-10">불러오는 중...</div>`;
@@ -6444,7 +6646,7 @@
         ==================================================================== */
         const SETTINGS_MODELS = ["갤럭시 S23울트라", "갤럭시 S24울트라", "갤럭시 S25울트라", "갤럭시 S26울트라", "아이폰 17프로", "아이폰 17프로맥스", "아이폰 18프로", "아이폰 18프로맥스"];
         const SETTINGS_VENUE_REGIONS = {
-            Seoul: ["고척 스카이돔", "티켓링크 아레나", "블루스퀘어", "잠실 실내체육관", "KSPO DOME", "고려대 화정체육관", "장충체육관", "예스24 라이브", "코엑스"],
+            Seoul: ["고척 스카이돔", "티켓링크 아레나", "블루스퀘어", "잠실 실내체육관", "KSPO DOME", "고려대 화정체육관", "장충체육관", "예스24 라이브", "코엑스", "KBS아레나"],
             Incheon: ["인스파이어 아레나", "아시아드 주경기장", "문학경기장", "송도컨벤시아"],
             Gyeonggi: ["고양 종합운동장", "킨텍스"]
         };
@@ -8090,6 +8292,60 @@
                 </div>
             </div>
             <div id="blacklist-list" class="flex-1 overflow-y-auto p-6"></div>
+        </div>
+    </div>
+
+    <!-- ===================== 팔로우 대조 오버레이 ===================== -->
+    <!-- 미리 빌드된 Tailwind CSS에 없는 클래스만 보충 -->
+    <style>
+        #followcheck-overlay .pb-4 { padding-bottom: 1rem; }
+        #followcheck-overlay .font-mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+        #followcheck-overlay .bg-pink-500 { background-color: #ec4899; }
+        #followcheck-overlay .hover\:bg-pink-600:hover { background-color: #db2777; }
+        #followcheck-overlay .ml-auto { margin-left: auto; }
+        #followcheck-overlay .fc-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr 0.7fr; }
+        #hdr-more-menu .text-pink-600 { color: #db2777; }
+        #hdr-more-menu .text-left { text-align: left; }
+    </style>
+    <div id="followcheck-overlay" class="hidden fixed inset-0 z-[120] bg-slate-50">
+        <div class="h-full flex flex-col max-w-[900px] mx-auto w-full">
+            <div class="bg-white border-b border-slate-200 shadow-sm shrink-0">
+                <div class="flex items-center gap-3 px-6 py-4">
+                    <button onclick="closeFollowCheck()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 shrink-0" aria-label="닫기">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-lg font-black text-slate-900 leading-tight">💗 팔로우 대조</div>
+                        <div class="text-xs font-bold text-slate-400 leading-tight">팔로워 목록을 붙여넣으면 팔로우 할인 예약과 자동으로 맞춰봐요</div>
+                    </div>
+                    <button onclick="renderFollowCheck()" class="h-10 px-4 flex items-center gap-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-sm shrink-0">다시 대조</button>
+                </div>
+                <div class="grid grid-cols-2 gap-3 px-6 pb-4">
+                    <div class="flex flex-col gap-1.5">
+                        <div class="text-[12px] font-bold text-slate-500">X 팔로워 (x.com/serin_cam/followers 화면 전체 복사)</div>
+                        <textarea id="followcheck-x" rows="4" placeholder="팔로워 화면에서 Ctrl+A, Ctrl+C 후 여기에 붙여넣기" class="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-mono resize-none"></textarea>
+                        <div class="flex items-center gap-2">
+                            <button onclick="saveFollowList('x')" class="h-9 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-[12px]">X 목록 저장</button>
+                            <span id="followcheck-x-msg" class="text-[11px] font-bold text-slate-400"></span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <div class="text-[12px] font-bold text-slate-500">인스타 팔로워 (웹 팔로워 창 복사 또는 다운로드 파일)</div>
+                        <textarea id="followcheck-insta" rows="4" placeholder="팔로워 창 복사 내용 붙여넣기, 또는 아래에서 followers_1.json / .html 파일 선택" class="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-mono resize-none"></textarea>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button onclick="saveFollowList('insta')" class="h-9 px-3 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-[12px]">인스타 목록 저장</button>
+                            <label class="h-9 px-3 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-[12px] flex items-center cursor-pointer">파일 선택<input type="file" accept=".json,.html,.htm,.txt" class="hidden" onchange="loadFollowFile(this)"></label>
+                            <span id="followcheck-insta-msg" class="text-[11px] font-bold text-slate-400"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 px-6 pb-4 flex-wrap">
+                    <span id="followcheck-summary" class="flex items-center gap-2 flex-wrap"></span>
+                    <label class="ml-auto flex items-center gap-1.5 text-[12px] font-bold text-slate-500 cursor-pointer"><input type="checkbox" id="followcheck-only-missing" onchange="renderFollowCheck()"> 목록에 없음만 보기</label>
+                    <label class="flex items-center gap-1.5 text-[12px] font-bold text-slate-500 cursor-pointer"><input type="checkbox" id="followcheck-hide-past" checked onchange="renderFollowCheck()"> 반납 끝난 예약 숨기기</label>
+                </div>
+            </div>
+            <div id="followcheck-list" class="flex-1 overflow-y-auto p-6"></div>
         </div>
     </div>
 
