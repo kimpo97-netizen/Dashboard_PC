@@ -7723,7 +7723,9 @@
            리뷰 관리 (독립 모듈) — 예약 로직과 분리. 접두사 rv*
            reviews 테이블: id,category,model,rating,text,name,rawName,date,image,venue,seat
         ==================================================================== */
-        var rvState = { list: [], editingId: null, uploading: false };
+        // [NEW] 2026-10-30 리뷰 목록은 30개씩만 그리고 '더보기'로 이어서 불러온다 (사진 트래픽 절감)
+        var RV_PAGE = 30;
+        var rvState = { list: [], editingId: null, uploading: false, limit: RV_PAGE };
         var RV_BUCKET = 'review-images';
         var RV_MODELS = ['갤럭시 S23 울트라','갤럭시 S24 울트라','갤럭시 S25 울트라','갤럭시 S26 울트라','아이폰 17 프로','아이폰 17 프로맥스','아이폰 18 프로','아이폰 18 프로맥스'];
 
@@ -7764,6 +7766,8 @@
                 listEl.innerHTML = '<div class="col-span-full text-center py-16 text-slate-400 font-bold">표시할 리뷰가 없습니다.</div>';
                 return;
             }
+            var total = rows.length;
+            rows = rows.slice(0, rvState.limit);
             listEl.innerHTML = rows.map(function(r){
                 var stars = '★★★★★'.slice(0, Number(r.rating)||0) + '☆☆☆☆☆'.slice(0, 5-(Number(r.rating)||0));
                 var img = r.image ? '<img src="'+rvEsc(r.image)+'" class="w-full h-40 object-cover" loading="lazy">' : '<div class="w-full h-40 bg-slate-100 flex items-center justify-center text-slate-300 text-xs">이미지 없음</div>';
@@ -7786,7 +7790,9 @@
                         '</div>'+
                     '</div>'+
                 '</div>';
-            }).join('');
+            }).join('') + (total > rows.length
+                ? '<button onclick="rvState.limit+=RV_PAGE;rvRender()" class="col-span-full bg-white border border-slate-200 hover:bg-slate-50 rounded-xl py-3 text-sm font-bold text-slate-600">더보기 <span class="text-indigo-600">'+rows.length+'</span> <span class="text-slate-400">/ '+total+'</span></button>'
+                : '');
         }
 
         function rvOpenEdit(id){
@@ -8574,7 +8580,7 @@
                     <div class="w-[240px] shrink-0">
                         <div class="relative flex items-center bg-indigo-50/50 border border-indigo-100 rounded-[20px] overflow-hidden focus-within:ring-2 focus-within:ring-indigo-300 focus-within:bg-white transition-all">
                             <svg class="text-indigo-300 ml-4 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                            <input type="text" id="rv-search" onkeyup="rvRender()" placeholder="검색 (이름, 기종, 내용)" class="w-full bg-transparent border-none text-[13px] font-bold text-indigo-900 placeholder-indigo-300 outline-none p-3 pl-2.5">
+                            <input type="text" id="rv-search" onkeyup="rvState.limit=RV_PAGE;rvRender()" placeholder="검색 (이름, 기종, 내용)" class="w-full bg-transparent border-none text-[13px] font-bold text-indigo-900 placeholder-indigo-300 outline-none p-3 pl-2.5">
                         </div>
                     </div>
                     <button onclick="rvOpenEdit(null)" class="h-11 px-4 flex items-center gap-2 bg-violet-500 hover:bg-violet-600 rounded-[18px] text-[13px] font-bold text-white shadow-md shadow-violet-200 transition-all whitespace-nowrap shrink-0">
